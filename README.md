@@ -61,8 +61,8 @@ Requires a JDK 25 on `PATH` (or `JAVA_HOME`). The Gradle wrapper handles the res
 
 Artifacts:
 
-- `fabric/build/libs/xetiusmap-client-1.0.0.jar` → the client's `mods/` folder
-- `paper/build/libs/xetiusmap-server-1.0.0.jar` → the server's `plugins/` folder
+- `fabric/build/libs/xetiusmap-client-<version>.jar` → the client's `mods/` folder
+- `paper/build/libs/xetiusmap-server-<version>.jar` → the server's `plugins/` folder
 
 Both jars bundle the shared `:common` module, so there is nothing else to install.
 
