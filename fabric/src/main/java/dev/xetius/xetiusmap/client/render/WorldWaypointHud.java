@@ -39,10 +39,17 @@ public final class WorldWaypointHud implements HudElement {
     /** Keeps a crowded horizon from turning into a wall of overlapping markers. */
     private static final int MAX_MARKERS = 32;
 
-    // Distance-to-scale ramp. Full size up close, shrinking to MIN_SCALE by FAR_DISTANCE.
-    private static final double NEAR_DISTANCE = 16.0;
-    private static final double FAR_DISTANCE = 320.0;
-    private static final float MIN_SCALE = 0.45F;
+    /** Minecraft's font renders at a 9 pixel line height, which is the marker's full size. */
+    private static final float BASE_TEXT_HEIGHT = 9.0F;
+
+    /** The floor markers shrink to, expressed as the point size it works out at. */
+    private static final float MIN_TEXT_HEIGHT = 5.0F;
+    private static final float MIN_SCALE = MIN_TEXT_HEIGHT / BASE_TEXT_HEIGHT;
+
+    // Full size within NEAR_DISTANCE, at the floor by FAR_DISTANCE, and most of the way there
+    // early: the ease-out below has markers near their minimum by roughly 120 blocks.
+    private static final double NEAR_DISTANCE = 8.0;
+    private static final double FAR_DISTANCE = 200.0;
 
     /** The focused marker's name never shrinks below this, or looking at it would not help. */
     private static final float NAME_MIN_SCALE = 0.8F;
@@ -129,17 +136,22 @@ public final class WorldWaypointHud implements HudElement {
         }
     }
 
-    /** Shrinks with distance on a log ramp, which tracks how quickly things recede in view. */
-    private static float scale(double distance) {
+    /**
+     * Shrinks the whole marker — icon, initials and distance alike — with an ease-out cubic, so
+     * most of the shrinking happens in the first stretch and markers settle to the floor rather
+     * than creeping down over hundreds of blocks.
+     */
+    static float scale(double distance) {
         if (distance <= NEAR_DISTANCE) {
             return 1.0F;
         }
         if (distance >= FAR_DISTANCE) {
             return MIN_SCALE;
         }
-        double t = (Math.log(distance) - Math.log(NEAR_DISTANCE))
-                / (Math.log(FAR_DISTANCE) - Math.log(NEAR_DISTANCE));
-        return (float) (1.0 - t * (1.0 - MIN_SCALE));
+        double t = (distance - NEAR_DISTANCE) / (FAR_DISTANCE - NEAR_DISTANCE);
+        double remaining = 1.0 - t;
+        double eased = 1.0 - remaining * remaining * remaining;
+        return (float) (1.0 - eased * (1.0 - MIN_SCALE));
     }
 
     private static float fade(ClientConfig config, double distance) {
