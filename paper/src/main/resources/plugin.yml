@@ -1,0 +1,46 @@
+name: XetiusMap
+version: '${version}'
+main: dev.xetius.xetiusmap.paper.XetiusMapPlugin
+api-version: '${api_version}'
+description: Server side of XetiusMap — a shared world map with global waypoints for Fabric clients.
+author: Xetius
+website: https://github.com/xetius/XetiusMap
+folia-supported: false
+
+commands:
+  xmap:
+    description: Manage XetiusMap waypoints, teleports and stored map data.
+    usage: /xmap help
+    aliases: [xetiusmap, wmap]
+
+permissions:
+  xetiusmap.use:
+    description: Connect to the shared map with the client mod.
+    default: true
+  xetiusmap.upload:
+    description: Contribute newly explored chunks to the shared map.
+    default: true
+  xetiusmap.waypoint.create:
+    description: Create shared waypoints.
+    default: true
+  xetiusmap.waypoint.edit.own:
+    description: Edit waypoints you created.
+    default: true
+  xetiusmap.waypoint.edit.other:
+    description: Edit waypoints created by anybody.
+    default: op
+  xetiusmap.waypoint.delete.own:
+    description: Delete waypoints you created.
+    default: true
+  xetiusmap.waypoint.delete.other:
+    description: Delete waypoints created by anybody.
+    default: op
+  xetiusmap.teleport:
+    description: Teleport to a waypoint. Granted to nobody by default — enable it deliberately.
+    default: false
+  xetiusmap.hidden:
+    description: Never appear on other players' maps.
+    default: false
+  xetiusmap.admin:
+    description: Reload the plugin, purge stored map data, and bypass the teleport cooldown.
+    default: op

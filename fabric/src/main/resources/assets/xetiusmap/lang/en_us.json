@@ -1,0 +1,9 @@
+{
+  "key.categories.xetiusmap.main": "XetiusMap",
+  "key.xetiusmap.world_map": "Open world map",
+  "key.xetiusmap.zoom_in": "Zoom minimap in",
+  "key.xetiusmap.zoom_out": "Zoom minimap out",
+  "key.xetiusmap.new_waypoint": "New waypoint here",
+  "key.xetiusmap.toggle_minimap": "Toggle minimap",
+  "key.xetiusmap.settings": "Open map settings"
+}

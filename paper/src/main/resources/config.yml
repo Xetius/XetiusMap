@@ -1,0 +1,53 @@
+# XetiusMap — server configuration.
+# Reload after editing with: /xmap reload
+
+storage:
+  # Where stored map tiles live, relative to plugins/XetiusMap/.
+  directory: mapdata
+  # Region files kept open at once. Higher uses more file handles but avoids reopening.
+  max-open-regions: 64
+
+map:
+  # Accept newly explored chunks from clients. Turn this off to freeze the map as it is.
+  uploads-enabled: true
+  # Dimensions to store maps for, by their level key. Leave empty for every dimension.
+  # e.g. ['minecraft:overworld', 'minecraft:the_nether']
+  dimensions: []
+  # Per-player limits. Tiles above these rates are dropped, not queued.
+  max-uploads-per-second: 30
+  max-tile-requests-per-second: 400
+  # Outgoing plugin-message frames per player per tick. Raising this fills maps in
+  # faster at the cost of more bandwidth per client.
+  max-frames-per-player-per-tick: 8
+
+radar:
+  enabled: true
+  # How often live positions are pushed. 10 ticks is twice a second.
+  interval-ticks: 10
+  # Mobs are reported only within this many blocks of the viewer. 0 disables mob radar
+  # entirely, leaving player positions only.
+  mob-radius: 192
+  # Hard cap per update, so a mob farm cannot flood a client.
+  max-mobs-per-update: 400
+  # Players are shown across every dimension. Vanished players are always excluded, as is
+  # anyone holding xetiusmap.hidden or using /xmap hide.
+  show-players: true
+  hide-spectators: true
+
+teleport:
+  # Even with this enabled, a player still needs the xetiusmap.teleport permission,
+  # which is granted to nobody by default.
+  enabled: true
+  cooldown-seconds: 30
+  # Seconds the player must stand still before the teleport fires. 0 teleports instantly.
+  warmup-seconds: 3
+  cancel-on-move: true
+  cancel-on-damage: true
+  allow-cross-dimension: true
+  # Nudge the arrival point out of solid blocks rather than suffocating the player.
+  safe-landing: true
+
+waypoints:
+  # 0 means unlimited.
+  max-per-player: 64
+  max-total: 2000

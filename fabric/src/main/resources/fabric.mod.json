@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "xetiusmap",
+  "version": "${version}",
+  "name": "XetiusMap",
+  "description": "A shared minimap and world map. Chunks explored by anyone are visible to everyone, with global waypoints and a live player and mob radar when the XetiusMap Paper plugin is installed.",
+  "authors": [
+    "Xetius"
+  ],
+  "contact": {
+    "homepage": "https://github.com/xetius/XetiusMap",
+    "sources": "https://github.com/xetius/XetiusMap"
+  },
+  "license": "MIT",
+  "icon": "assets/xetiusmap/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.xetius.xetiusmap.client.XetiusMapClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=25"
+  }
+}
