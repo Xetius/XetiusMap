@@ -185,6 +185,7 @@ public final class WorldMapScreen extends Screen {
 
         drawPanel(graphics, client, mouseX, mouseY);
         drawTopBar(graphics, client, mouseX, mouseY);
+        drawHoverName(graphics, client, mouseX, mouseY);
 
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
@@ -281,6 +282,72 @@ public final class WorldMapScreen extends Screen {
                         player, config.showPlayerNames, font, config.showPlayerHeads, PLAYER_HEAD_SIZE);
             }
         }
+    }
+
+    /** How near the cursor a marker must be, in pixels, to be the thing being pointed at. */
+    private static final int HOVER_RADIUS = 8;
+
+    /**
+     * Names whatever the cursor is over. Players and waypoints win ties over mobs, since they are
+     * the things worth identifying when several markers overlap.
+     */
+    private void drawHoverName(GuiGraphicsExtractor graphics, MapClient client, int mouseX, int mouseY) {
+        ClientConfig config = XetiusMapClient.config();
+        if (!config.showHoverNames || mouseX >= mapWidth() || mouseY <= 20) {
+            return;
+        }
+
+        Component name = null;
+        double best = HOVER_RADIUS * HOVER_RADIUS;
+
+        if (config.showPlayers) {
+            for (Markers.PlayerMarker player : client.entities().players()) {
+                if (!player.dimension().equals(viewedDimension)) {
+                    continue;
+                }
+                double d = distanceSquared(screenX(player.x() + 0.5), screenY(player.z() + 0.5), mouseX, mouseY);
+                if (d <= best) {
+                    best = d;
+                    name = Component.literal(player.name());
+                }
+            }
+        }
+
+        if (config.showWaypoints) {
+            for (Waypoint waypoint : client.waypoints().inDimension(viewedDimension)) {
+                double d = distanceSquared(screenX(waypoint.x() + 0.5), screenY(waypoint.z() + 0.5), mouseX, mouseY);
+                if (d <= best) {
+                    best = d;
+                    name = Component.literal(waypoint.name());
+                }
+            }
+        }
+
+        if (name == null && config.showMobs && viewedDimension.equals(client.entities().dimension())) {
+            int viewerY = minecraft != null && minecraft.player != null ? minecraft.player.getBlockY() : 0;
+            List<String> palette = client.entities().typePalette();
+            for (Markers.MobMarker mob : client.entities().mobs()) {
+                if (!config.showsMobAtHeight(mob.y(), viewerY)
+                        || mob.typeIndex() < 0 || mob.typeIndex() >= palette.size()) {
+                    continue;
+                }
+                double d = distanceSquared(screenX(mob.x() + 0.5), screenY(mob.z() + 0.5), mouseX, mouseY);
+                if (d <= best) {
+                    best = d;
+                    name = MarkerIcons.speciesName(palette.get(mob.typeIndex()));
+                }
+            }
+        }
+
+        if (name != null) {
+            graphics.setTooltipForNextFrame(name, mouseX, mouseY);
+        }
+    }
+
+    private static double distanceSquared(double x, double y, double mouseX, double mouseY) {
+        double dx = x - mouseX;
+        double dy = y - mouseY;
+        return dx * dx + dy * dy;
     }
 
     private void drawTopBar(GuiGraphicsExtractor graphics, MapClient client, int mouseX, int mouseY) {

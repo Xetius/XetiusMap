@@ -123,6 +123,7 @@ public final class ConfigScreen extends Screen {
         toggle(0, "Waypoints", () -> config.showWaypoints, v -> config.showWaypoints = v);
         toggle(0, "Player faces", () -> config.showPlayerHeads, v -> config.showPlayerHeads = v);
         toggle(0, "Mob icons", () -> config.showMobIcons, v -> config.showMobIcons = v);
+        toggle(0, "Names on hover", () -> config.showHoverNames, v -> config.showHoverNames = v);
 
         toggle(1, "Edge arrows: waypoints", () -> config.edgeIndicatorWaypoints,
                 v -> config.edgeIndicatorWaypoints = v);

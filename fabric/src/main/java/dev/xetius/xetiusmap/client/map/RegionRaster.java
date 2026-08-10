@@ -9,6 +9,7 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
 
 import java.util.Arrays;
+import java.util.Locale;
 
 /**
  * One region's worth of map pixels, at one of two resolutions.
@@ -18,9 +19,9 @@ import java.util.Arrays;
  * block a screen covers hundreds of regions, and holding those at full detail would cost a
  * gigabyte.
  *
- * <p>Pixels live in a plain {@code int[]} so they can be filled from the worker thread. The GPU
- * texture is created and refreshed lazily on the render thread the first time something asks to
- * draw it.
+ * <p>Pixels live directly in a {@link NativeImage}, which doubles as the upload source: allocating
+ * one is just memory, so it can be filled on the worker thread, while the GPU texture wrapping it
+ * is created lazily on the render thread the first time something asks to draw it.
  */
 public final class RegionRaster implements AutoCloseable {
 
@@ -32,15 +33,17 @@ public final class RegionRaster implements AutoCloseable {
     private final int regionZ;
     private final int blocksPerPixel;
     private final int resolution;
-    private final int[] pixels;
     private final long[] revisions = new long[MapCoords.TILES_PER_REGION];
+    private final Identifier textureId;
 
     private NativeImage image;
     private DynamicTexture texture;
-    private Identifier textureId;
-    private volatile boolean dirty;
+    private volatile boolean dirty = true;
     private volatile boolean closed;
     private int populatedTiles;
+
+    /** The frame this raster was last drawn on, so eviction can leave on-screen regions alone. */
+    private long lastUsedFrame;
 
     public RegionRaster(String dimension, int regionX, int regionZ, int blocksPerPixel) {
         this.dimension = dimension;
@@ -48,7 +51,12 @@ public final class RegionRaster implements AutoCloseable {
         this.regionZ = regionZ;
         this.blocksPerPixel = blocksPerPixel;
         this.resolution = MapCoords.REGION_BLOCKS / blocksPerPixel;
-        this.pixels = new int[resolution * resolution];
+        this.image = new NativeImage(resolution, resolution, false);
+        this.textureId = XetiusMap.id("region/"
+                + MapCoords.dimensionToFolder(dimension).toLowerCase(Locale.ROOT)
+                + "/" + (regionX < 0 ? "n" + (-regionX) : regionX)
+                + "_" + (regionZ < 0 ? "n" + (-regionZ) : regionZ)
+                + "_" + blocksPerPixel);
     }
 
     public String dimension() {
@@ -79,8 +87,19 @@ public final class RegionRaster implements AutoCloseable {
         return revisions[slot];
     }
 
+    public long lastUsedFrame() {
+        return lastUsedFrame;
+    }
+
+    public void markUsed(long frame) {
+        this.lastUsedFrame = frame;
+    }
+
     /** Paints one chunk into the raster, averaging blocks together for a coarse raster. */
     public synchronized void paint(ChunkTile tile, long revision) {
+        if (closed) {
+            return;
+        }
         int slot = MapCoords.tileIndex(tile.chunkX(), tile.chunkZ());
         if (revisions[slot] == 0) {
             populatedTiles++;
@@ -93,15 +112,14 @@ public final class RegionRaster implements AutoCloseable {
 
         if (blocksPerPixel == 1) {
             for (int z = 0; z < 16; z++) {
-                int row = (baseZ + z) * resolution + baseX;
                 for (int x = 0; x < 16; x++) {
-                    pixels[row + x] = tile.colorAt(x, z);
+                    image.setPixel(baseX + x, baseZ + z, tile.colorAt(x, z));
                 }
             }
         } else {
             for (int pz = 0; pz < chunkPixels; pz++) {
                 for (int px = 0; px < chunkPixels; px++) {
-                    pixels[(baseZ + pz) * resolution + baseX + px] = average(tile, px, pz);
+                    image.setPixel(baseX + px, baseZ + pz, average(tile, px, pz));
                 }
             }
         }
@@ -133,9 +151,12 @@ public final class RegionRaster implements AutoCloseable {
 
     /** Colour at a world block position, or 0 if that spot has not been mapped. */
     public int colorAtBlock(int worldX, int worldZ) {
+        if (closed) {
+            return 0;
+        }
         int localX = Math.floorMod(worldX, MapCoords.REGION_BLOCKS) / blocksPerPixel;
         int localZ = Math.floorMod(worldZ, MapCoords.REGION_BLOCKS) / blocksPerPixel;
-        return pixels[localZ * resolution + localX];
+        return image.getPixel(localX, localZ);
     }
 
     public boolean hasTileAtBlock(int worldX, int worldZ) {
@@ -152,32 +173,14 @@ public final class RegionRaster implements AutoCloseable {
             return null;
         }
         if (texture == null) {
-            image = new NativeImage(resolution, resolution, false);
-            texture = new DynamicTexture(() -> "xetiusmap/" + dimension + "/" + regionX + "_" + regionZ,
-                    image);
-            textureId = XetiusMap.id("region/"
-                    + MapCoords.dimensionToFolder(dimension).toLowerCase(java.util.Locale.ROOT)
-                    + "/" + (regionX < 0 ? "n" + (-regionX) : regionX)
-                    + "_" + (regionZ < 0 ? "n" + (-regionZ) : regionZ)
-                    + "_" + blocksPerPixel);
+            texture = new DynamicTexture(() -> "xetiusmap/" + dimension + "/" + regionX + "_" + regionZ, image);
             Minecraft.getInstance().getTextureManager().register(textureId, texture);
-            dirty = true;
-        }
-        if (dirty) {
-            uploadPixels();
+            dirty = false;
+        } else if (dirty) {
+            texture.upload();
+            dirty = false;
         }
         return textureId;
-    }
-
-    private synchronized void uploadPixels() {
-        for (int y = 0; y < resolution; y++) {
-            int row = y * resolution;
-            for (int x = 0; x < resolution; x++) {
-                image.setPixel(x, y, pixels[row + x]);
-            }
-        }
-        texture.upload();
-        dirty = false;
     }
 
     public void markDirty() {
@@ -185,14 +188,20 @@ public final class RegionRaster implements AutoCloseable {
     }
 
     @Override
-    public void close() {
+    public synchronized void close() {
+        if (closed) {
+            return;
+        }
         closed = true;
         if (texture != null) {
             Minecraft.getInstance().getTextureManager().release(textureId);
+            // DynamicTexture#close also frees the NativeImage backing it.
             texture.close();
             texture = null;
-            image = null;
+        } else if (image != null) {
+            image.close();
         }
+        image = null;
         Arrays.fill(revisions, 0L);
     }
 

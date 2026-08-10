@@ -32,8 +32,18 @@ import java.util.function.Consumer;
  */
 public final class MapDataStore implements AutoCloseable {
 
-    private static final int MAX_DETAIL_RASTERS = 32;
-    private static final int MAX_COARSE_RASTERS = 256;
+    // A 1920x1080 world map at half a pixel per block needs about 41 detail regions, so a cap of
+    // 32 guaranteed thrashing: regions still on screen were evicted, redrawn as unexplored, and
+    // immediately reloaded. Eviction now refuses to touch anything drawn recently, and the caps
+    // leave headroom above what a screen can actually demand.
+    private static final int MAX_DETAIL_RASTERS = 64;
+    private static final int MAX_COARSE_RASTERS = 320;
+
+    /** Rasters drawn within this many frames are never evicted, however full the cache is. */
+    private static final long IN_USE_FRAMES = 2;
+
+    /** Absolute ceiling, in case a pathological view somehow keeps everything in use. */
+    private static final int HARD_CAP_MULTIPLIER = 2;
 
     /** Uploads awaiting acknowledgement. Generous, but bounded so a broken server cannot leak. */
     private static final int MAX_PENDING_UPLOADS = 1024;
@@ -56,6 +66,7 @@ public final class MapDataStore implements AutoCloseable {
 
     private volatile boolean closed;
     private int generation;
+    private long frame;
 
     public MapDataStore(Path root, ExecutorService io) {
         this.disk = new TileStore(root, 32);
@@ -76,6 +87,7 @@ public final class MapDataStore implements AutoCloseable {
         Map<RegionRaster.Key, RegionRaster> cache = cacheFor(blocksPerPixel);
         RegionRaster existing = cache.get(key);
         if (existing != null) {
+            existing.markUsed(frame);
             return existing;
         }
         scheduleLoad(key);
@@ -123,6 +135,7 @@ public final class MapDataStore implements AutoCloseable {
      * which is the only place a raster may be created or freed.
      */
     public void pump() {
+        frame++;
         RegionRaster raster;
         while ((raster = loaded.poll()) != null) {
             RegionRaster.Key key = raster.key();
@@ -132,6 +145,7 @@ public final class MapDataStore implements AutoCloseable {
             if (previous != null) {
                 previous.close();
             }
+            raster.markUsed(frame);
             generation++;
             evict(cache, key.blocksPerPixel() == RegionRaster.DETAIL_BLOCKS_PER_PIXEL
                     ? MAX_DETAIL_RASTERS : MAX_COARSE_RASTERS);
@@ -164,10 +178,21 @@ public final class MapDataStore implements AutoCloseable {
         }
     }
 
+    /**
+     * Trims the cache back to its limit, in least-recently-used order but skipping anything drawn
+     * in the last couple of frames. Evicting a region that is still on screen is what caused
+     * visible chunks to flicker: it would be dropped, redrawn as unexplored, reloaded, and in
+     * turn evict its neighbours.
+     */
     private void evict(Map<RegionRaster.Key, RegionRaster> cache, int limit) {
+        int hardCap = limit * HARD_CAP_MULTIPLIER;
         Iterator<Map.Entry<RegionRaster.Key, RegionRaster>> it = cache.entrySet().iterator();
         while (cache.size() > limit && it.hasNext()) {
             Map.Entry<RegionRaster.Key, RegionRaster> eldest = it.next();
+            boolean inUse = frame - eldest.getValue().lastUsedFrame() < IN_USE_FRAMES;
+            if (inUse && cache.size() <= hardCap) {
+                continue;
+            }
             it.remove();
             eldest.getValue().close();
         }

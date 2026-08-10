@@ -58,6 +58,9 @@ public final class ClientConfig {
      */
     public int mobVerticalRange = 24;
 
+    /** Name the thing under the cursor on the world map. */
+    public boolean showHoverNames = true;
+
     /** Draw player skins and per-mob icons instead of plain coloured dots. */
     public boolean showPlayerHeads = true;
     public boolean showMobIcons = true;

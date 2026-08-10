@@ -94,6 +94,18 @@ public final class MarkerIcons {
                 .orElse(ItemStack.EMPTY);
     }
 
+    /** The localised name of an entity type, falling back to the raw id for unknown species. */
+    public static net.minecraft.network.chat.Component speciesName(String typeId) {
+        Identifier id = Identifier.tryParse(typeId);
+        if (id != null) {
+            var type = BuiltInRegistries.ENTITY_TYPE.getOptional(id);
+            if (type.isPresent()) {
+                return type.get().getDescription();
+            }
+        }
+        return net.minecraft.network.chat.Component.literal(typeId);
+    }
+
     /** Dropped between worlds so a resource reload cannot leave stale stacks behind. */
     public static void clearCache() {
         MOB_ICONS.clear();
