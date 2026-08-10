@@ -30,8 +30,10 @@ in the same on-disk format, so nothing breaks — you simply do not share.
   else watching that area.
 - **Global waypoints** — create, edit, recolour, delete; everyone with the mod sees them. Manage
   them from the world map panel or with `/xmap waypoint`.
-- **In-world waypoint markers** — waypoints appear at their real position as you look around, with
-  name and distance, fading out as you arrive so they stop covering the view.
+- **In-world waypoint markers** — waypoints appear at their real position as you look around,
+  showing their initials and distance. They shrink with distance to a readable floor, and the full
+  name appears only for the marker you look directly at, so a crowded view stays quiet. Markers fade
+  out as you arrive rather than covering what is in front of you.
 - **Edge arrows on the minimap** — waypoints and players that have scrolled off the minimap are
   pinned to its rim with an arrow pointing the way, so you can still navigate to them.
 - **Teleport to a waypoint**, behind a permission that is granted to nobody by default.
