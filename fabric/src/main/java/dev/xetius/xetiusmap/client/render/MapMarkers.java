@@ -41,22 +41,27 @@ public final class MapMarkers {
 
     /** A dot with a facing tick, plus the player's name if labels are on. */
     public static void drawPlayer(GuiGraphicsExtractor graphics, float screenX, float screenY,
-                                  Markers.PlayerMarker player, boolean withLabel, Font font) {
+                                  Markers.PlayerMarker player, boolean withLabel, Font font,
+                                  boolean withHead, int headSize) {
         int x = Math.round(screenX);
         int y = Math.round(screenY);
 
-        graphics.fill(x - 3, y - 3, x + 3, y + 3, OUTLINE);
-        graphics.fill(x - 2, y - 2, x + 2, y + 2, 0xFFFFE070);
+        if (withHead) {
+            MarkerIcons.playerHead(graphics, player.uuid(), screenX, screenY, headSize);
+        } else {
+            graphics.fill(x - 3, y - 3, x + 3, y + 3, OUTLINE);
+            graphics.fill(x - 2, y - 2, x + 2, y + 2, 0xFFFFE070);
+        }
 
         double radians = Math.toRadians(player.yaw());
-        int tipX = x - (int) Math.round(Math.sin(radians) * 5);
-        int tipY = y + (int) Math.round(Math.cos(radians) * 5);
+        int reach = withHead ? headSize / 2 + 3 : 5;
+        int tipX = x - (int) Math.round(Math.sin(radians) * reach);
+        int tipY = y + (int) Math.round(Math.cos(radians) * reach);
         graphics.fill(tipX - 1, tipY - 1, tipX + 1, tipY + 1, 0xFFFFE070);
 
         if (withLabel && font != null) {
-            int width = font.width(player.name());
-            graphics.fill(x - width / 2 - 2, y - 15, x + width / 2 + 2, y - 4, LABEL_BACKDROP);
-            graphics.centeredText(font, Component.literal(player.name()), x, y - 14, 0xFFFFFFFF);
+            int above = withHead ? headSize / 2 + 11 : 14;
+            graphics.centeredText(font, Component.literal(player.name()), x, y - above, 0xFFFFFFFF);
         }
     }
 

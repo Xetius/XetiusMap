@@ -6,6 +6,7 @@ import dev.xetius.xetiusmap.client.config.ClientConfig;
 import dev.xetius.xetiusmap.client.map.EntityTracker;
 import dev.xetius.xetiusmap.client.map.RegionRaster;
 import dev.xetius.xetiusmap.client.render.MapMarkers;
+import dev.xetius.xetiusmap.client.render.MarkerIcons;
 import dev.xetius.xetiusmap.common.model.Markers;
 import dev.xetius.xetiusmap.common.model.Waypoint;
 import dev.xetius.xetiusmap.common.util.MapCoords;
@@ -47,6 +48,9 @@ public final class WorldMapScreen extends Screen {
     private static final int MAX_REGIONS_PER_FRAME = 512;
 
     private static final int ROW_HEIGHT = 12;
+
+    private static final int MOB_ICON_SIZE = 11;
+    private static final int PLAYER_HEAD_SIZE = 10;
 
     private double centreX;
     private double centreZ;
@@ -232,10 +236,22 @@ public final class WorldMapScreen extends Screen {
         ClientConfig config = XetiusMapClient.config();
 
         if (config.showMobs && viewedDimension.equals(client.entities().dimension())) {
+            int viewerY = minecraft != null && minecraft.player != null ? minecraft.player.getBlockY() : 0;
+            List<String> palette = client.entities().typePalette();
             for (Markers.MobMarker mob : client.entities().mobs()) {
-                int x = (int) Math.round(screenX(mob.x() + 0.5));
-                int y = (int) Math.round(screenY(mob.z() + 0.5));
-                graphics.fill(x - 2, y - 2, x + 2, y + 2, EntityTracker.colorFor(mob.category()));
+                if (!config.showsMobAtHeight(mob.y(), viewerY)) {
+                    continue;
+                }
+                float x = (float) screenX(mob.x() + 0.5);
+                float y = (float) screenY(mob.z() + 0.5);
+                boolean drawn = config.showMobIcons
+                        && mob.typeIndex() >= 0 && mob.typeIndex() < palette.size()
+                        && MarkerIcons.mobIcon(graphics, palette.get(mob.typeIndex()), x, y, MOB_ICON_SIZE);
+                if (!drawn) {
+                    int ix = Math.round(x);
+                    int iy = Math.round(y);
+                    graphics.fill(ix - 2, iy - 2, ix + 2, iy + 2, EntityTracker.colorFor(mob.category()));
+                }
             }
         }
 
@@ -262,7 +278,7 @@ public final class WorldMapScreen extends Screen {
                 MapMarkers.drawPlayer(graphics,
                         (float) screenX(player.x() + 0.5),
                         (float) screenY(player.z() + 0.5),
-                        player, config.showPlayerNames, font);
+                        player, config.showPlayerNames, font, config.showPlayerHeads, PLAYER_HEAD_SIZE);
             }
         }
     }

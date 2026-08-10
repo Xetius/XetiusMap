@@ -14,6 +14,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
+import java.util.List;
+
 /** The always-on minimap overlay. */
 public final class MinimapHud implements HudElement {
 
@@ -26,6 +28,9 @@ public final class MinimapHud implements HudElement {
     private static final float EDGE_INSET = 5.0F;
     private static final float EDGE_ARROW_LENGTH = 4.0F;
     private static final float EDGE_ARROW_HALF_WIDTH = 3.0F;
+
+    private static final int MOB_ICON_SIZE = 9;
+    private static final int PLAYER_HEAD_SIZE = 8;
 
     private final MinimapComposer composer = new MinimapComposer();
 
@@ -85,11 +90,26 @@ public final class MinimapHud implements HudElement {
         // Mobs get no edge indicator: they move constantly and are not things you navigate towards,
         // so pinning them to the rim would be a ring of noise.
         if (config.showMobs) {
+            int viewerY = Minecraft.getInstance().player == null
+                    ? 0 : Minecraft.getInstance().player.getBlockY();
+            List<String> palette = client.entities().typePalette();
             for (Markers.MobMarker mob : client.entities().mobs()) {
+                if (!config.showsMobAtHeight(mob.y(), viewerY)) {
+                    continue;
+                }
                 float[] at = MinimapComposer.project(mob.x() + 0.5, mob.z() + 0.5,
                         centreX, centreZ, effectiveYaw, scale, size);
-                if (inside(at, size)) {
-                    dot(graphics, left + at[0], top + at[1], 2, EntityTracker.colorFor(mob.category()));
+                if (!inside(at, size)) {
+                    continue;
+                }
+                float markerX = left + at[0];
+                float markerY = top + at[1];
+                boolean drawn = config.showMobIcons
+                        && mob.typeIndex() >= 0 && mob.typeIndex() < palette.size()
+                        && MarkerIcons.mobIcon(graphics, palette.get(mob.typeIndex()),
+                                markerX, markerY, MOB_ICON_SIZE);
+                if (!drawn) {
+                    dot(graphics, markerX, markerY, 2, EntityTracker.colorFor(mob.category()));
                 }
             }
         }
@@ -117,7 +137,8 @@ public final class MinimapHud implements HudElement {
                         centreX, centreZ, effectiveYaw, scale, size);
                 if (inside(at, size)) {
                     MapMarkers.drawPlayer(graphics, left + at[0], top + at[1], player,
-                            config.showPlayerNames, Minecraft.getInstance().font);
+                            config.showPlayerNames, Minecraft.getInstance().font, config.showPlayerHeads,
+                            PLAYER_HEAD_SIZE);
                 } else if (config.edgeIndicatorPlayers) {
                     drawEdgeIndicator(graphics, left, top, size, config, at, 0xFFFFE070);
                 }

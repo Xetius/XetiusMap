@@ -121,6 +121,8 @@ public final class ConfigScreen extends Screen {
         toggle(0, "Player names", () -> config.showPlayerNames, v -> config.showPlayerNames = v);
         toggle(0, "Mobs", () -> config.showMobs, v -> config.showMobs = v);
         toggle(0, "Waypoints", () -> config.showWaypoints, v -> config.showWaypoints = v);
+        toggle(0, "Player faces", () -> config.showPlayerHeads, v -> config.showPlayerHeads = v);
+        toggle(0, "Mob icons", () -> config.showMobIcons, v -> config.showMobIcons = v);
 
         toggle(1, "Edge arrows: waypoints", () -> config.edgeIndicatorWaypoints,
                 v -> config.edgeIndicatorWaypoints = v);
@@ -129,6 +131,9 @@ public final class ConfigScreen extends Screen {
         toggle(1, "Coordinates", () -> config.showCoordinates, v -> config.showCoordinates = v);
         toggle(1, "Biome name", () -> config.showBiome, v -> config.showBiome = v);
         toggle(1, "Compass letters", () -> config.showDirections, v -> config.showDirections = v);
+        slider(1, "Mob height range", 0, 128, 4, config.mobVerticalRange,
+                v -> v <= 0 ? "any height" : String.format(Locale.ROOT, "\u00b1%.0f m", v),
+                v -> config.mobVerticalRange = (int) v);
     }
 
     private void buildInWorldTab(ClientConfig config) {

@@ -52,6 +52,16 @@ public final class ClientConfig {
     public boolean showWaypoints = true;
     public boolean showPlayerNames = true;
 
+    /**
+     * Only show mobs within this many blocks above or below you. Keeps cave spawns off the map
+     * while you are on the surface, and surface mobs off it while you are underground. 0 shows all.
+     */
+    public int mobVerticalRange = 24;
+
+    /** Draw player skins and per-mob icons instead of plain coloured dots. */
+    public boolean showPlayerHeads = true;
+    public boolean showMobIcons = true;
+
     /** Arrows pinned to the minimap edge for markers that have scrolled out of view. */
     public boolean edgeIndicatorWaypoints = true;
     public boolean edgeIndicatorPlayers = true;
@@ -89,6 +99,14 @@ public final class ClientConfig {
     /** Minecraft's own text renders at a 9 pixel line height; marker sizes are points against it. */
     public static final float BASE_TEXT_SIZE = 9.0F;
 
+    /**
+     * Whether a mob at {@code mobY} is close enough vertically to the viewer to be drawn. This is
+     * what keeps cave spawns off the map while you stand on the surface, and vice versa.
+     */
+    public boolean showsMobAtHeight(int mobY, int viewerY) {
+        return mobVerticalRange <= 0 || Math.abs(mobY - viewerY) <= mobVerticalRange;
+    }
+
     /** Clamps anything a hand-edited config file might have got wrong. */
     public void validate() {
         minimapSize = clamp(minimapSize, 48, 512);
@@ -108,6 +126,7 @@ public final class ClientConfig {
         }
         worldWaypointIconSize = clamp(worldWaypointIconSize, 3, 24);
         worldWaypointFocusPercent = clamp(worldWaypointFocusPercent, 1, 50);
+        mobVerticalRange = clamp(mobVerticalRange, 0, 512);
         if (minimapAnchor == null) {
             minimapAnchor = Anchor.TOP_RIGHT;
         }
