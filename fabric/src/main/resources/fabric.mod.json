@@ -17,6 +17,9 @@
   "entrypoints": {
     "client": [
       "dev.xetius.xetiusmap.client.XetiusMapClient"
+    ],
+    "modmenu": [
+      "dev.xetius.xetiusmap.client.compat.ModMenuIntegration"
     ]
   },
   "depends": {

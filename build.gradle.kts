@@ -16,6 +16,7 @@ subprojects {
         mavenCentral()
         maven("https://repo.papermc.io/repository/maven-public/") { name = "PaperMC" }
         maven("https://maven.fabricmc.net/") { name = "Fabric" }
+        maven("https://maven.terraformersmc.com/releases/") { name = "Terraformers" }
     }
 
     extensions.configure<JavaPluginExtension> {

@@ -64,6 +64,17 @@ public final class ClientConfig {
     /** Below this distance the marker fades out, so it stops covering what you are looking at. */
     public int worldWaypointFadeNear = 8;
 
+    /** Marker size, in points, once fully shrunk. Minecraft's own text is 9. */
+    public float worldWaypointMinTextSize = 5.0F;
+    /** Markers stay at full size within this many blocks. */
+    public int worldWaypointFullSizeDistance = 8;
+    /** Markers reach {@link #worldWaypointMinTextSize} at this distance. */
+    public int worldWaypointMinSizeDistance = 200;
+    /** Radius of the diamond icon at full size. */
+    public int worldWaypointIconSize = 9;
+    /** How near the crosshair a marker must be to show its full name, as a % of screen height. */
+    public int worldWaypointFocusPercent = 9;
+
     // --- World map ---
     public int worldMapZoom = 3;
 
@@ -75,6 +86,9 @@ public final class ClientConfig {
     public boolean uploadEnabled = true;
     public boolean hiddenFromOthers = false;
 
+    /** Minecraft's own text renders at a 9 pixel line height; marker sizes are points against it. */
+    public static final float BASE_TEXT_SIZE = 9.0F;
+
     /** Clamps anything a hand-edited config file might have got wrong. */
     public void validate() {
         minimapSize = clamp(minimapSize, 48, 512);
@@ -85,6 +99,15 @@ public final class ClientConfig {
         worldMapZoom = clamp(worldMapZoom, 0, Zoom.LEVELS.length - 1);
         worldWaypointMaxDistance = clamp(worldWaypointMaxDistance, 0, 1_000_000);
         worldWaypointFadeNear = clamp(worldWaypointFadeNear, 0, 512);
+        worldWaypointMinTextSize = Math.max(2.0F, Math.min(BASE_TEXT_SIZE, worldWaypointMinTextSize));
+        worldWaypointFullSizeDistance = clamp(worldWaypointFullSizeDistance, 1, 512);
+        worldWaypointMinSizeDistance = clamp(worldWaypointMinSizeDistance, 16, 4096);
+        // The ramp needs somewhere to run: the floor must be further out than full size.
+        if (worldWaypointMinSizeDistance <= worldWaypointFullSizeDistance) {
+            worldWaypointMinSizeDistance = worldWaypointFullSizeDistance + 16;
+        }
+        worldWaypointIconSize = clamp(worldWaypointIconSize, 3, 24);
+        worldWaypointFocusPercent = clamp(worldWaypointFocusPercent, 1, 50);
         if (minimapAnchor == null) {
             minimapAnchor = Anchor.TOP_RIGHT;
         }

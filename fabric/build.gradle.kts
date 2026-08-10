@@ -6,6 +6,7 @@ val minecraftVersion = rootProject.property("minecraft_version") as String
 val loaderVersion = rootProject.property("loader_version") as String
 val fabricApiVersion = rootProject.property("fabric_api_version") as String
 val archivesBaseName = rootProject.property("archives_base_name") as String
+val modMenuVersion = rootProject.property("modmenu_version") as String
 
 base {
     archivesName.set("$archivesBaseName-client")
@@ -37,6 +38,10 @@ dependencies {
     minecraft("com.mojang:minecraft:$minecraftVersion")
     implementation("net.fabricmc:fabric-loader:$loaderVersion")
     implementation("net.fabricmc.fabric-api:fabric-api:$fabricApiVersion")
+
+    // Only needed to implement ModMenuApi. The entrypoint class is loaded by Mod Menu alone, so
+    // there is no runtime dependency and the mod works perfectly well without it.
+    compileOnly("com.terraformersmc:modmenu:$modMenuVersion")
 
     implementation(project(":common"))
     shade(project(":common"))

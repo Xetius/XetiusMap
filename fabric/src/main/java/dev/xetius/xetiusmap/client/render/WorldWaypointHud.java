@@ -39,25 +39,9 @@ public final class WorldWaypointHud implements HudElement {
     /** Keeps a crowded horizon from turning into a wall of overlapping markers. */
     private static final int MAX_MARKERS = 32;
 
-    /** Minecraft's font renders at a 9 pixel line height, which is the marker's full size. */
-    private static final float BASE_TEXT_HEIGHT = 9.0F;
-
-    /** The floor markers shrink to, expressed as the point size it works out at. */
-    private static final float MIN_TEXT_HEIGHT = 5.0F;
-    private static final float MIN_SCALE = MIN_TEXT_HEIGHT / BASE_TEXT_HEIGHT;
-
-    // Full size within NEAR_DISTANCE, at the floor by FAR_DISTANCE, and most of the way there
-    // early: the ease-out below has markers near their minimum by roughly 120 blocks.
-    private static final double NEAR_DISTANCE = 8.0;
-    private static final double FAR_DISTANCE = 200.0;
-
     /** The focused marker's name never shrinks below this, or looking at it would not help. */
     private static final float NAME_MIN_SCALE = 0.8F;
 
-    private static final int ICON_RADIUS = 9;
-
-    /** How near the crosshair a marker must be, as a fraction of screen height, to show its name. */
-    private static final float FOCUS_FRACTION = 0.09F;
     private static final float FOCUS_MIN_PIXELS = 26.0F;
 
     private final Matrix4f projection = new Matrix4f();
@@ -88,7 +72,8 @@ public final class WorldWaypointHud implements HudElement {
 
         float centreX = graphics.guiWidth() / 2.0F;
         float centreY = graphics.guiHeight() / 2.0F;
-        float focusRadius = Math.max(FOCUS_MIN_PIXELS, graphics.guiHeight() * FOCUS_FRACTION);
+        float focusRadius = Math.max(FOCUS_MIN_PIXELS,
+                graphics.guiHeight() * config.worldWaypointFocusPercent / 100.0F);
 
         List<Projected> visible = new ArrayList<>();
         Projected focused = null;
@@ -118,7 +103,7 @@ public final class WorldWaypointHud implements HudElement {
             }
 
             Projected marker = new Projected(waypoint, screenX, screenY, distance,
-                    fade(config, distance), scale(distance));
+                    fade(config, distance), scale(config, distance));
             visible.add(marker);
 
             float fromCrosshair = (float) Math.hypot(screenX - centreX, screenY - centreY);
@@ -141,17 +126,20 @@ public final class WorldWaypointHud implements HudElement {
      * most of the shrinking happens in the first stretch and markers settle to the floor rather
      * than creeping down over hundreds of blocks.
      */
-    static float scale(double distance) {
-        if (distance <= NEAR_DISTANCE) {
+    static float scale(ClientConfig config, double distance) {
+        double near = config.worldWaypointFullSizeDistance;
+        double far = config.worldWaypointMinSizeDistance;
+        float floor = config.worldWaypointMinTextSize / ClientConfig.BASE_TEXT_SIZE;
+        if (distance <= near) {
             return 1.0F;
         }
-        if (distance >= FAR_DISTANCE) {
-            return MIN_SCALE;
+        if (distance >= far) {
+            return floor;
         }
-        double t = (distance - NEAR_DISTANCE) / (FAR_DISTANCE - NEAR_DISTANCE);
+        double t = (distance - near) / (far - near);
         double remaining = 1.0 - t;
         double eased = 1.0 - remaining * remaining * remaining;
-        return (float) (1.0 - eased * (1.0 - MIN_SCALE));
+        return (float) (1.0 - eased * (1.0 - floor));
     }
 
     private static float fade(ClientConfig config, double distance) {
@@ -182,14 +170,15 @@ public final class WorldWaypointHud implements HudElement {
         pose.translate(marker.screenX(), marker.screenY());
         pose.scale(marker.scale());
 
-        Shapes.diamond(graphics, 0, 0, ICON_RADIUS, color, outline);
+        int iconRadius = config.worldWaypointIconSize;
+        Shapes.diamond(graphics, 0, 0, iconRadius, color, outline);
         // Text sits on a coloured icon, so pick whichever of black or white reads against it.
         graphics.centeredText(minecraft.font, initials, 0, -4,
                 Shapes.withAlpha(contrastingText(marker.waypoint().color()), marker.alpha()));
 
         if (config.showWaypointDistance) {
             graphics.centeredText(minecraft.font, formatDistance(marker.distance()),
-                    0, ICON_RADIUS + 3, Shapes.withAlpha(0xFFD6D6D6, marker.alpha()));
+                    0, iconRadius + 3, Shapes.withAlpha(0xFFD6D6D6, marker.alpha()));
         }
         pose.popMatrix();
 
@@ -197,7 +186,7 @@ public final class WorldWaypointHud implements HudElement {
             // Drawn in its own transform so the name stays legible however far away it is.
             float nameScale = Math.max(NAME_MIN_SCALE, marker.scale());
             pose.pushMatrix();
-            pose.translate(marker.screenX(), marker.screenY() - (ICON_RADIUS + 4) * marker.scale());
+            pose.translate(marker.screenX(), marker.screenY() - (iconRadius + 4) * marker.scale());
             pose.scale(nameScale);
             graphics.centeredText(minecraft.font, marker.waypoint().name(), 0, -9,
                     Shapes.withAlpha(0xFFFFFFFF, marker.alpha()));

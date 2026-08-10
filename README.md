@@ -39,11 +39,14 @@ in the same on-disk format, so nothing breaks — you simply do not share.
 - **Teleport to a waypoint**, behind a permission that is granted to nobody by default.
 - **Live radar** — all online players across all dimensions, plus mobs within a configurable radius.
 - **All dimensions**, including maps of dimensions you are not currently in.
+- **Tabbed settings screen** with sliders for every size and distance, reachable from **Mod Menu**
+  or a bindable key. Mod Menu is optional — it is a compile-only dependency and the mod is happy
+  without it.
 
 ## Requirements
 
 - **Minecraft 26.2**, **Java 25**
-- Client: **Fabric Loader 0.19.3+** and **Fabric API 0.157.0+26.2**
+- Client: **Fabric Loader 0.19.3+** and **Fabric API 0.157.0+26.2**; **Mod Menu** optional
 - Server: **Paper 26.2** (built against `26.2.build.111-stable`)
 
 ## Building
