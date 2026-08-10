@@ -9,8 +9,8 @@ It ships as two artifacts:
 
 | | |
 |---|---|
-| **`xetiusmap-fabric`** | Fabric client mod — renders the map, scans chunks, draws the UI |
-| **`xetiusmap-paper`** | Paper server plugin — stores the shared map, waypoints, radar and teleports |
+| **`xetiusmap-client`** | Fabric client mod — renders the map, scans chunks, draws the UI |
+| **`xetiusmap-server`** | Paper server plugin — stores the shared map, waypoints, radar and teleports |
 
 The mod works on its own too. Without the plugin (or in single player) it keeps a private local map
 in the same on-disk format, so nothing breaks — you simply do not share.
@@ -54,8 +54,8 @@ Requires a JDK 25 on `PATH` (or `JAVA_HOME`). The Gradle wrapper handles the res
 
 Artifacts:
 
-- `fabric/build/libs/xetiusmap-fabric-1.0.0.jar` → the client's `mods/` folder
-- `paper/build/libs/xetiusmap-paper-1.0.0.jar` → the server's `plugins/` folder
+- `fabric/build/libs/xetiusmap-client-1.0.0.jar` → the client's `mods/` folder
+- `paper/build/libs/xetiusmap-server-1.0.0.jar` → the server's `plugins/` folder
 
 Both jars bundle the shared `:common` module, so there is nothing else to install.
 

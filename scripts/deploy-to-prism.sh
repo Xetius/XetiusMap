@@ -24,7 +24,7 @@ cd "$(dirname "$0")/.."
 ./gradlew :fabric:build --console=plain -q
 
 JAR=$(ls -t fabric/build/libs/*.jar | grep -v sources | head -1)
-rm -f "$MODS"/xetiusmap-fabric-*.jar
+rm -f "$MODS"/xetiusmap-*.jar
 cp "$JAR" "$MODS/"
 
 echo "Deployed $(basename "$JAR") -> $INSTANCE"

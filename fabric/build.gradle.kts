@@ -8,7 +8,7 @@ val fabricApiVersion = rootProject.property("fabric_api_version") as String
 val archivesBaseName = rootProject.property("archives_base_name") as String
 
 base {
-    archivesName.set("$archivesBaseName-fabric")
+    archivesName.set("$archivesBaseName-client")
 }
 
 loom {

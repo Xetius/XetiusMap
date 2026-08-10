@@ -2,7 +2,7 @@ val paperApiVersion = rootProject.property("paper_api_version") as String
 val archivesBaseName = rootProject.property("archives_base_name") as String
 
 base {
-    archivesName.set("$archivesBaseName-paper")
+    archivesName.set("$archivesBaseName-server")
 }
 
 // Classes bundled verbatim into the plugin jar.

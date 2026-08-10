@@ -75,19 +75,19 @@ jobs:
           path: '**/build/reports/tests/**'
           retention-days: 7
 
-      - name: Upload the Fabric mod
+      - name: Upload the client mod
         uses: actions/upload-artifact@v7
         with:
-          name: xetiusmap-fabric
+          name: xetiusmap-client
           path: |
             fabric/build/libs/*.jar
             !fabric/build/libs/*-sources.jar
           if-no-files-found: error
 
-      - name: Upload the Paper plugin
+      - name: Upload the server plugin
         uses: actions/upload-artifact@v7
         with:
-          name: xetiusmap-paper
+          name: xetiusmap-server
           path: |
             paper/build/libs/*.jar
             !paper/build/libs/*-sources.jar
@@ -117,7 +117,7 @@ jobs:
           body: |
             Built from `${{ github.sha }}` for Minecraft 26.2.
 
-            - `xetiusmap-fabric-*.jar` goes in the client's `mods/` folder, alongside Fabric API.
-            - `xetiusmap-paper-*.jar` goes in the server's `plugins/` folder.
+            - `xetiusmap-client-*.jar` goes in the client's `mods/` folder, alongside Fabric API.
+            - `xetiusmap-server-*.jar` goes in the server's `plugins/` folder.
 
             The mod works without the plugin — you just get a local map instead of a shared one.
