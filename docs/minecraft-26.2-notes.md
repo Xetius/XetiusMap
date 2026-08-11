@@ -40,6 +40,7 @@ separate `net.fabricmc.fabric-loom-remap` plugin for 1.21.x.
 | `Minecraft#setScreen(...)` | `Minecraft#gui.setScreen(...)` |
 | `KeyBindingHelper` (`keybinding.v1`) | `KeyMappingHelper` (`keymapping.v1`) |
 | `WorldRenderEvents` | `LevelRenderEvents` (`rendering.v1.level`) |
+| `key.categories.<name>` (lang) | `key.category.<namespace>.<path>` |
 | `ChunkPos.x` / `.z` (fields) | `ChunkPos` is a record: `x()` / `z()` |
 
 `Options.hideGui` is gone. A Fabric HUD element inherits the render condition of whichever vanilla
@@ -98,6 +99,22 @@ int rgb = tints.getFirst().colorInWorld(state, blockAndTintGetter, pos);
 `modifier` (LOW 180, NORMAL 220, HIGH 255, LOWEST 135) alongside
 `MapColor#calculateARGBColor(Brightness)`.
 
+**A tint source may not implement `colorInWorld` at all.** The interface defaults it to
+`color(state)`, which for several sources is the untinted sentinel `-1`. `Blocks.WATER` is the one
+that catches you out: it is registered with `BlockTintSources.waterParticles()`, which overrides only
+`colorAsTerrainParticle`, so asking it for a world colour hands back white. Multiply that white by
+any shading and you get grey — which is exactly what happened to every ocean on this map until it
+was tracked down.
+
+Fluids should be asked directly:
+
+```java
+int water = BiomeColors.getAverageWaterColor(blockAndTintGetter, pos);
+```
+
+and it is worth treating a returned `0xFFFFFF` from *any* source as "no tint" rather than as a
+colour.
+
 ## Input
 
 `Screen` and `GuiEventListener` take event records rather than loose primitives:
@@ -111,6 +128,16 @@ boolean keyPressed(KeyEvent event);           // event.key() for the GLFW code
 
 `KeyMapping` needs a `KeyMapping.Category`, registered with
 `KeyMapping.Category.register(Identifier)`.
+
+The category's display name comes from `id.toLanguageKey("key.category")` — **singular**, and
+namespaced — so a category registered as `xetiusmap:main` wants:
+
+```json
+"key.category.xetiusmap.main": "XetiusMap"
+```
+
+Not `key.categories.<name>`, which is what every pre-26 mod and tutorial uses. Get it wrong and the
+Controls screen silently prints the raw key instead of the name, with no warning anywhere.
 
 ## Networking
 
