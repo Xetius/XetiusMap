@@ -37,6 +37,9 @@ in the same on-disk format, so nothing breaks — you simply do not share.
 - **Edge arrows on the minimap** — waypoints and players that have scrolled off the minimap are
   pinned to its rim with an arrow pointing the way, so you can still navigate to them.
 - **Teleport to a waypoint**, behind a permission that is granted to nobody by default.
+- **Right-click anywhere on the world map** for teleport, waypoint or recentre — teleporting works
+  across dimensions and picks a safe landing height for you. Behind its own permission, also off by
+  default.
 - **Live radar** — all online players across all dimensions, plus mobs within a configurable radius.
   Players show as their own skin's face and mobs as their species icon. By default only creatures
   out under the sky are drawn — visible however high above them you are — so cave spawns stay off
@@ -89,7 +92,8 @@ Run the development client with:
 | *(unbound)* | Open map settings |
 
 In the world map: drag to pan, scroll to zoom, `Tab` cycles dimension, `C` recentres on you, arrow
-keys pan, right-click creates a waypoint where you clicked, left-click selects one.
+keys pan, left-click selects a waypoint, and **right-click opens a menu** offering teleport, a new
+waypoint, or recentre at that spot.
 
 All keys are rebindable through Minecraft's own Controls screen.
 
@@ -116,6 +120,7 @@ All keys are rebindable through Minecraft's own Controls screen.
 | `xetiusmap.waypoint.edit.own` / `.delete.own` | everyone | Manage your own waypoints |
 | `xetiusmap.waypoint.edit.other` / `.delete.other` | op | Manage anyone's waypoints |
 | **`xetiusmap.teleport`** | **nobody** | Teleport to waypoints — grant this deliberately |
+| **`xetiusmap.teleport.anywhere`** | **nobody** | Teleport to any point right-clicked on the map |
 | `xetiusmap.hidden` | nobody | Never appear on other players' maps |
 | `xetiusmap.admin` | op | `reload`, `purge`, and bypass the teleport cooldown |
 

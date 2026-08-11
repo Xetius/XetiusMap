@@ -85,7 +85,7 @@ class PacketCodecTest {
 
     @Test
     void helloOkCarriesPolicy() {
-        ServerPolicy policy = new ServerPolicy("Paper 26.2", true, true, false, 192, 4, 30,
+        ServerPolicy policy = new ServerPolicy("Paper 26.2", true, true, false, true, 192, 4, 30,
                 List.of("minecraft:overworld", "minecraft:the_nether"));
         S2C.HelloOk decoded = roundTripS2C(new S2C.HelloOk(Protocol.VERSION, policy));
         assertEquals(policy, decoded.policy());
@@ -144,6 +144,14 @@ class PacketCodecTest {
         assertTrue(decoded.mobs().getFirst().skyVisible(), "sky exposure must survive the round trip");
         // Yaw survives quantisation to within one step of 360/256 degrees.
         assertTrue(Math.abs(decoded.mobs().getFirst().yaw() - 180.0F) < 1.5F);
+    }
+
+    @Test
+    void teleportToRoundTrips() {
+        C2S.TeleportTo decoded = roundTripC2S(new C2S.TeleportTo("minecraft:the_end", -1234, 5678));
+        assertEquals("minecraft:the_end", decoded.dimension());
+        assertEquals(-1234, decoded.x());
+        assertEquals(5678, decoded.z());
     }
 
     @Test

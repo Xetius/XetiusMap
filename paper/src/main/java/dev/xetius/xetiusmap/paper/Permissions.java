@@ -14,6 +14,12 @@ public final class Permissions {
     /** Deliberately granted to nobody by default. */
     public static final String TELEPORT = "xetiusmap.teleport";
 
+    /**
+     * Teleport to any point picked off the map, rather than only to a curated waypoint. Strictly
+     * more powerful, so it is a separate node and also granted to nobody by default.
+     */
+    public static final String TELEPORT_ANYWHERE = "xetiusmap.teleport.anywhere";
+
     /** Holders never appear on anybody else's map. */
     public static final String HIDDEN = "xetiusmap.hidden";
 

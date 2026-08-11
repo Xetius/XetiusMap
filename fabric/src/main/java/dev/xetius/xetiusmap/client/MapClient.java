@@ -385,6 +385,22 @@ public final class MapClient implements AutoCloseable {
         }
     }
 
+    /** Whether the server allows this player to teleport to any point on the map. */
+    public boolean canTeleportAnywhere() {
+        return serverBacked && policy.teleportEnabled() && policy.teleportAnywherePermitted();
+    }
+
+    /** Asks to be moved to a point picked off the map. The server chooses a safe height. */
+    public void teleportTo(String targetDimension, int x, int z) {
+        if (canTeleportAnywhere()) {
+            ClientNetwork.send(new C2S.TeleportTo(targetDimension, x, z));
+        } else {
+            status = serverBacked
+                    ? "You do not have permission to teleport to map locations."
+                    : "Teleporting needs the XetiusMap server plugin.";
+        }
+    }
+
     public void setHidden(boolean hidden) {
         config.hiddenFromOthers = hidden;
         if (serverBacked) {

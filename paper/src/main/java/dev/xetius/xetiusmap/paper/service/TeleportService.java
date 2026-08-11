@@ -82,6 +82,90 @@ public final class TeleportService implements Listener {
         reply(player, session, true, "Teleporting to " + waypoint.name() + " in " + warmup + "s — stand still.");
     }
 
+    /**
+     * Teleports to a point picked off the map. No height is supplied, so one is chosen here: the
+     * surface, or in a roofed dimension the first standable gap below the ceiling.
+     */
+    public void requestLocation(Player player, PlayerSession session, String dimension, int x, int z) {
+        PluginConfig cfg = config.get();
+        if (!cfg.teleportEnabled()) {
+            reply(player, session, false, "Waypoint teleporting is disabled on this server.");
+            return;
+        }
+        if (!player.hasPermission(Permissions.TELEPORT_ANYWHERE)) {
+            reply(player, session, false, "You do not have permission to teleport to arbitrary map locations.");
+            return;
+        }
+
+        World world = worldFor(dimension);
+        if (world == null) {
+            reply(player, session, false, "The dimension '" + dimension + "' is not loaded.");
+            return;
+        }
+        if (!cfg.teleportAllowCrossDimension() && !world.equals(player.getWorld())) {
+            reply(player, session, false, "You can only teleport within your current dimension.");
+            return;
+        }
+        long remaining = cooldownRemainingSeconds(player);
+        if (remaining > 0) {
+            reply(player, session, false, "You must wait " + remaining + "s before teleporting again.");
+            return;
+        }
+
+        Location target = landingSpot(world, x, z);
+        int warmup = cfg.teleportWarmupSeconds();
+        if (warmup <= 0) {
+            move(player, session, target, describe(dimension, x, z));
+            return;
+        }
+
+        cancel(player.getUniqueId(), null);
+        Location origin = player.getLocation();
+        BukkitTask task = plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            pending.remove(player.getUniqueId());
+            if (player.isOnline()) {
+                move(player, session, target, describe(dimension, x, z));
+            }
+        }, warmup * 20L);
+        pending.put(player.getUniqueId(), new Pending(task, origin, session));
+        reply(player, session, true, "Teleporting to " + describe(dimension, x, z)
+                + " in " + warmup + "s — stand still.");
+    }
+
+    private static String describe(String dimension, int x, int z) {
+        int colon = dimension.indexOf(':');
+        return x + ", " + z + " in " + (colon >= 0 ? dimension.substring(colon + 1) : dimension);
+    }
+
+    /**
+     * Picks somewhere to stand at an x/z with no height given. Under a ceiling the highest block is
+     * the roof, so the search starts below it and works down for the first standable gap.
+     */
+    private Location landingSpot(World world, int x, int z) {
+        int start = world.hasCeiling()
+                ? Math.min(world.getMaxHeight() - 2, 100)
+                : world.getHighestBlockYAt(x, z) + 1;
+        Location candidate = new Location(world, x + 0.5, start, z + 0.5,
+                0.0F, 0.0F);
+        return config.get().teleportSafeLanding() ? safeLanding(candidate) : candidate;
+    }
+
+    private void move(Player player, PlayerSession session, Location target, String description) {
+        Location destination = target.clone();
+        destination.setYaw(player.getLocation().getYaw());
+        destination.setPitch(player.getLocation().getPitch());
+        player.teleportAsync(destination, PlayerTeleportEvent.TeleportCause.PLUGIN).thenAccept(success -> {
+            if (Boolean.TRUE.equals(success)) {
+                if (session != null) {
+                    session.markTeleported();
+                }
+                reply(player, session, true, "Teleported to " + description + ".");
+            } else {
+                reply(player, session, false, "The teleport was cancelled.");
+            }
+        });
+    }
+
     private Optional<String> validate(Player player, UUID waypointId) {
         PluginConfig cfg = config.get();
         if (!cfg.teleportEnabled()) {
@@ -159,6 +243,20 @@ public final class TeleportService implements Listener {
      */
     private Location safeLanding(Location target) {
         World world = target.getWorld();
+        if (world.hasCeiling()) {
+            // Searching upward would walk into the bedrock roof, so look down for a gap instead.
+            int x = target.getBlockX();
+            int z = target.getBlockZ();
+            for (int y = target.getBlockY(); y > world.getMinHeight() + 1; y--) {
+                boolean feetClear = world.getBlockAt(x, y, z).isPassable();
+                boolean headClear = world.getBlockAt(x, y + 1, z).isPassable();
+                boolean groundSolid = !world.getBlockAt(x, y - 1, z).isPassable();
+                if (feetClear && headClear && groundSolid) {
+                    return new Location(world, x + 0.5, y, z + 0.5, target.getYaw(), target.getPitch());
+                }
+            }
+            return target;
+        }
         int minY = world.getMinHeight();
         int maxY = world.getMaxHeight();
         int x = target.getBlockX();

@@ -233,6 +233,7 @@ public final class XetiusMapPlugin extends JavaPlugin implements Listener {
             case C2S.WaypointUpdate update -> handleWaypointUpdate(player, session, update);
             case C2S.WaypointDelete delete -> handleWaypointDelete(player, session, delete);
             case C2S.TeleportRequest request -> teleports.request(player, session, request.waypointId());
+            case C2S.TeleportTo to -> teleports.requestLocation(player, session, to.dimension(), to.x(), to.z());
             case C2S.EntityView view -> session.setView(view.active()
                     ? new PlayerSession.ViewBounds(view.dimension(), view.minChunkX(), view.minChunkZ(),
                             view.maxChunkX(), view.maxChunkZ())
@@ -278,6 +279,7 @@ public final class XetiusMapPlugin extends JavaPlugin implements Listener {
         PluginConfig cfg = config.get();
         Player player = getServer().getPlayer(session.playerId());
         boolean mayTeleport = player != null && player.hasPermission(Permissions.TELEPORT);
+        boolean mayTeleportAnywhere = player != null && player.hasPermission(Permissions.TELEPORT_ANYWHERE);
         boolean mayUpload = cfg.uploadsEnabled() && player != null && player.hasPermission(Permissions.UPLOAD);
 
         List<String> dimensions = new ArrayList<>();
@@ -293,6 +295,7 @@ public final class XetiusMapPlugin extends JavaPlugin implements Listener {
                 mayUpload,
                 cfg.teleportEnabled(),
                 mayTeleport,
+                mayTeleportAnywhere,
                 cfg.mobRadius(),
                 cfg.radarIntervalTicks(),
                 cfg.maxUploadsPerSecond(),

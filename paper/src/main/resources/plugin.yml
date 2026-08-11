@@ -38,6 +38,9 @@ permissions:
   xetiusmap.teleport:
     description: Teleport to a waypoint. Granted to nobody by default — enable it deliberately.
     default: false
+  xetiusmap.teleport.anywhere:
+    description: Teleport to any point on the map, not just to a waypoint. Granted to nobody by default.
+    default: false
   xetiusmap.hidden:
     description: Never appear on other players' maps.
     default: false

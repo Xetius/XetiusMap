@@ -24,6 +24,7 @@ public sealed interface C2S extends Packet {
     int ENTITY_VIEW = 9;
     int SET_HIDDEN = 10;
     int BLOCK_PALETTE = 11;
+    int TELEPORT_TO = 12;
 
     /** First thing a client sends after joining. */
     record Hello(int protocolVersion, String modVersion) implements C2S {
@@ -249,6 +250,28 @@ public sealed interface C2S extends Packet {
         }
     }
 
+    /**
+     * Asks to be moved to a point picked off the map. The height is deliberately not sent: the
+     * server works out a safe landing spot itself, because the client has no idea what is there.
+     */
+    record TeleportTo(String dimension, int x, int z) implements C2S {
+        @Override
+        public int id() {
+            return TELEPORT_TO;
+        }
+
+        @Override
+        public void write(ByteWriter w) {
+            w.writeString(dimension);
+            w.writeInt(x);
+            w.writeInt(z);
+        }
+
+        static TeleportTo read(ByteReader r) {
+            return new TeleportTo(r.readString(), r.readInt(), r.readInt());
+        }
+    }
+
     static C2S decode(byte[] data) {
         ByteReader r = new ByteReader(data);
         int id = r.readUnsignedByte();
@@ -264,6 +287,7 @@ public sealed interface C2S extends Packet {
             case ENTITY_VIEW -> EntityView.read(r);
             case SET_HIDDEN -> SetHidden.read(r);
             case BLOCK_PALETTE -> BlockPaletteUpload.read(r);
+            case TELEPORT_TO -> TeleportTo.read(r);
             default -> throw new ProtocolException("unknown client packet id " + id);
         };
     }

@@ -18,8 +18,10 @@ public final class Protocol {
      *
      * <p>3: clients can upload a block and biome colour table, which lets the server render
      * already-generated chunks that nobody has walked through.
+     *
+     * <p>4: teleporting to a point picked off the map, across dimensions.
      */
-    public static final int VERSION = 3;
+    public static final int VERSION = 4;
 
     /**
      * Bukkit caps a plugin message at {@code Messenger.MAX_MESSAGE_SIZE} (32766 bytes). Fragments

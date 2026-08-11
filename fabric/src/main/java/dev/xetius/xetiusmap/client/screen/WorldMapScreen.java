@@ -65,6 +65,13 @@ public final class WorldMapScreen extends Screen {
     private UUID selectedWaypoint;
     private int listScroll;
 
+    // Right-click context menu, anchored where you clicked.
+    private boolean menuOpen;
+    private int menuScreenX;
+    private int menuScreenY;
+    private int menuWorldX;
+    private int menuWorldZ;
+
     private Button teleportButton;
     private Button editButton;
     private Button deleteButton;
@@ -186,6 +193,7 @@ public final class WorldMapScreen extends Screen {
         drawPanel(graphics, client, mouseX, mouseY);
         drawTopBar(graphics, client, mouseX, mouseY);
         drawHoverName(graphics, client, mouseX, mouseY);
+        drawContextMenu(graphics, client, mouseX, mouseY);
 
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
@@ -355,6 +363,74 @@ public final class WorldMapScreen extends Screen {
         return dx * dx + dy * dy;
     }
 
+    private static final int MENU_WIDTH = 132;
+    private static final int MENU_ROW = 14;
+
+    private List<String> menuEntries(MapClient client) {
+        List<String> entries = new ArrayList<>();
+        entries.add(client.canTeleportAnywhere() ? "Teleport here" : "Teleport here (no permission)");
+        entries.add("New waypoint here");
+        entries.add("Centre here");
+        return entries;
+    }
+
+    private void drawContextMenu(GuiGraphicsExtractor graphics, MapClient client, int mouseX, int mouseY) {
+        if (!menuOpen) {
+            return;
+        }
+        List<String> entries = menuEntries(client);
+        int height = entries.size() * MENU_ROW + 14;
+        // Keep it on screen when you right-click near an edge.
+        int x = Math.min(menuScreenX, mapWidth() - MENU_WIDTH - 2);
+        int y = Math.min(menuScreenY, this.height - height - 2);
+
+        graphics.fill(x, y, x + MENU_WIDTH, y + height, PANEL_BACKGROUND);
+        graphics.outline(x, y, MENU_WIDTH, height, PANEL_LINE);
+        graphics.text(font, Component.literal(menuWorldX + ", " + menuWorldZ), x + 6, y + 4, TEXT_DIM);
+
+        for (int i = 0; i < entries.size(); i++) {
+            int rowY = y + 14 + i * MENU_ROW;
+            boolean hovered = mouseX >= x && mouseX < x + MENU_WIDTH && mouseY >= rowY && mouseY < rowY + MENU_ROW;
+            if (hovered) {
+                graphics.fill(x + 1, rowY, x + MENU_WIDTH - 1, rowY + MENU_ROW, SELECTION);
+            }
+            boolean enabled = i != 0 || client.canTeleportAnywhere();
+            graphics.text(font, Component.literal(entries.get(i)), x + 6, rowY + 3, enabled ? TEXT : TEXT_DIM);
+        }
+    }
+
+    /** @return true if the click was consumed by the menu */
+    private boolean handleMenuClick(MapClient client, double mouseX, double mouseY) {
+        List<String> entries = menuEntries(client);
+        int height = entries.size() * MENU_ROW + 14;
+        int x = Math.min(menuScreenX, mapWidth() - MENU_WIDTH - 2);
+        int y = Math.min(menuScreenY, this.height - height - 2);
+
+        if (mouseX < x || mouseX >= x + MENU_WIDTH || mouseY < y || mouseY >= y + height) {
+            menuOpen = false;
+            return true;
+        }
+        int index = (int) ((mouseY - y - 14) / MENU_ROW);
+        menuOpen = false;
+        switch (index) {
+            case 0 -> {
+                if (client.canTeleportAnywhere()) {
+                    client.teleportTo(viewedDimension, menuWorldX, menuWorldZ);
+                    onClose();
+                }
+            }
+            case 1 -> createWaypointAt(menuWorldX, menuWorldZ);
+            case 2 -> {
+                centreX = menuWorldX;
+                centreZ = menuWorldZ;
+            }
+            default -> {
+                // Clicked the header; just dismiss.
+            }
+        }
+        return true;
+    }
+
     private void drawTopBar(GuiGraphicsExtractor graphics, MapClient client, int mouseX, int mouseY) {
         graphics.fill(0, 0, mapWidth(), 20, PANEL_BACKGROUND);
         graphics.fill(0, 20, mapWidth(), 21, PANEL_LINE);
@@ -435,6 +511,10 @@ public final class WorldMapScreen extends Screen {
         double mouseX = event.x();
         double mouseY = event.y();
 
+        if (menuOpen && handleMenuClick(client, mouseX, mouseY)) {
+            return true;
+        }
+
         if (mouseX >= width - PANEL_WIDTH) {
             if (selectWaypointFromList(client, mouseX, mouseY)) {
                 return true;
@@ -443,7 +523,11 @@ public final class WorldMapScreen extends Screen {
         }
 
         if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-            createWaypointAt((int) Math.floor(worldXAt(mouseX)), (int) Math.floor(worldZAt(mouseY)));
+            menuOpen = true;
+            menuScreenX = (int) mouseX;
+            menuScreenY = (int) mouseY;
+            menuWorldX = (int) Math.floor(worldXAt(mouseX));
+            menuWorldZ = (int) Math.floor(worldZAt(mouseY));
             return true;
         }
 
@@ -539,6 +623,10 @@ public final class WorldMapScreen extends Screen {
 
     @Override
     public boolean keyPressed(KeyEvent event) {
+        if (menuOpen && event.key() == GLFW.GLFW_KEY_ESCAPE) {
+            menuOpen = false;
+            return true;
+        }
         ClientConfig config = XetiusMapClient.config();
         int pan = (int) (64 / pixelsPerBlock());
         switch (event.key()) {

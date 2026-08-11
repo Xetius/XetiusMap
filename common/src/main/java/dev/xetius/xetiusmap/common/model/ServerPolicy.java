@@ -13,6 +13,7 @@ import java.util.List;
  * @param uploadsEnabled     whether the server accepts tile uploads at all
  * @param teleportEnabled    whether waypoint teleporting is enabled server-wide
  * @param teleportPermitted  whether <em>this</em> player currently holds the teleport permission
+ * @param teleportAnywherePermitted whether they may also teleport to any point on the map
  * @param mobRadius          radius in blocks within which mobs are reported, 0 disables mob radar
  * @param entityIntervalTicks how often the server pushes entity updates
  * @param maxUploadsPerSecond per-player upload budget, so the client can pace itself
@@ -23,6 +24,7 @@ public record ServerPolicy(
         boolean uploadsEnabled,
         boolean teleportEnabled,
         boolean teleportPermitted,
+        boolean teleportAnywherePermitted,
         int mobRadius,
         int entityIntervalTicks,
         int maxUploadsPerSecond,
@@ -34,6 +36,7 @@ public record ServerPolicy(
         w.writeBoolean(uploadsEnabled);
         w.writeBoolean(teleportEnabled);
         w.writeBoolean(teleportPermitted);
+        w.writeBoolean(teleportAnywherePermitted);
         w.writeVarInt(mobRadius);
         w.writeVarInt(entityIntervalTicks);
         w.writeVarInt(maxUploadsPerSecond);
@@ -46,6 +49,7 @@ public record ServerPolicy(
                 r.readBoolean(),
                 r.readBoolean(),
                 r.readBoolean(),
+                r.readBoolean(),
                 r.readVarInt(),
                 r.readVarInt(),
                 r.readVarInt(),
@@ -55,6 +59,6 @@ public record ServerPolicy(
 
     /** The policy the client assumes when it is running without a server plugin. */
     public static ServerPolicy localMode() {
-        return new ServerPolicy("local", false, false, false, 0, 0, 0, List.of());
+        return new ServerPolicy("local", false, false, false, false, 0, 0, 0, List.of());
     }
 }
