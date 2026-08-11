@@ -9,7 +9,9 @@ import dev.xetius.xetiusmap.common.util.MapCoords;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -42,6 +44,18 @@ public final class MapDataStore implements AutoCloseable {
     /** Rasters drawn within this many frames are never evicted, however full the cache is. */
     private static final long IN_USE_FRAMES = 2;
 
+    /**
+     * How long an evicted raster's GPU texture is kept alive before being freed.
+     *
+     * <p>26.2 draws the GUI in two phases: {@code blit} resolves a texture during extraction and
+     * stores its view in the render state, and the draw happens afterwards. Freeing a texture
+     * between those two points leaves the render state pointing at released GPU memory, and the
+     * driver happily draws whatever has since been allocated there — which, just after changing
+     * dimension, is a freshly created texture for the dimension you have arrived in. That is how
+     * whole regions of one world appeared on the map of another.
+     */
+    private static final long DISPOSAL_DELAY_FRAMES = 3;
+
     /** Absolute ceiling, in case a pathological view somehow keeps everything in use. */
     private static final int HARD_CAP_MULTIPLIER = 2;
 
@@ -56,6 +70,9 @@ public final class MapDataStore implements AutoCloseable {
     private final Set<RegionRaster.Key> loading = ConcurrentHashMap.newKeySet();
 
     private final Queue<RegionRaster> loaded = new ConcurrentLinkedQueue<>();
+
+    /** Evicted rasters awaiting disposal, oldest first. */
+    private final Deque<Disposal> pendingDisposal = new ArrayDeque<>();
     private final Queue<PaintJob> paintQueue = new ConcurrentLinkedQueue<>();
 
     /** Revisions the server has told us about, so we only ask for tiles we actually lack. */
@@ -136,6 +153,7 @@ public final class MapDataStore implements AutoCloseable {
      */
     public void pump() {
         frame++;
+        disposeExpired();
         RegionRaster raster;
         while ((raster = loaded.poll()) != null) {
             RegionRaster.Key key = raster.key();
@@ -143,7 +161,7 @@ public final class MapDataStore implements AutoCloseable {
             Map<RegionRaster.Key, RegionRaster> cache = cacheFor(key.blocksPerPixel());
             RegionRaster previous = cache.put(key, raster);
             if (previous != null) {
-                previous.close();
+                pendingDisposal.addLast(new Disposal(previous, frame));
             }
             raster.markUsed(frame);
             generation++;
@@ -194,8 +212,20 @@ public final class MapDataStore implements AutoCloseable {
                 continue;
             }
             it.remove();
-            eldest.getValue().close();
+            // Deliberately not closed here: see DISPOSAL_DELAY_FRAMES.
+            pendingDisposal.addLast(new Disposal(eldest.getValue(), frame));
         }
+    }
+
+    /** Frees textures whose last possible draw is now safely behind us. */
+    private void disposeExpired() {
+        while (!pendingDisposal.isEmpty()
+                && frame - pendingDisposal.peekFirst().queuedFrame() >= DISPOSAL_DELAY_FRAMES) {
+            pendingDisposal.removeFirst().raster().close();
+        }
+    }
+
+    private record Disposal(RegionRaster raster, long queuedFrame) {
     }
 
     /** Stores a tile that arrived from the server and shows it. */
@@ -350,6 +380,8 @@ public final class MapDataStore implements AutoCloseable {
     @Override
     public void close() {
         closed = true;
+        pendingDisposal.forEach(pending -> pending.raster().close());
+        pendingDisposal.clear();
         detailCache.values().forEach(RegionRaster::close);
         coarseCache.values().forEach(RegionRaster::close);
         detailCache.clear();
