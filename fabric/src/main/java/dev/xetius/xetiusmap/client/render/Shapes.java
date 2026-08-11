@@ -83,9 +83,7 @@ public final class Shapes {
      * vertex, so it reads as pointing down at the spot it marks. {@code tipX, tipY} is that point,
      * which is the position being marked; the body sits above it.
      */
-    public static void pin(GuiGraphicsExtractor graphics, float tipX, float tipY, float halfWidth,
-                           int color, int outline) {
-        pinShape(graphics, tipX, tipY, halfWidth + 1.0F, outline);
+    public static void pin(GuiGraphicsExtractor graphics, float tipX, float tipY, float halfWidth, int color) {
         pinShape(graphics, tipX, tipY, halfWidth, color);
     }
 

@@ -28,7 +28,7 @@ public final class MapMarkers {
         int y = Math.round(screenY);
         int color = 0xFF000000 | waypoint.color();
 
-        Shapes.pin(graphics, screenX, screenY, PIN_HALF_WIDTH, color, OUTLINE);
+        Shapes.pin(graphics, screenX, screenY, PIN_HALF_WIDTH, color);
 
         if (withLabel) {
             drawLabel(graphics, x, Math.round(Shapes.pinTop(screenY, PIN_HALF_WIDTH)) - 10,

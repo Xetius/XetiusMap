@@ -278,7 +278,9 @@ public final class XMapCommand implements CommandExecutor, TabCompleter {
                     "  " + session.playerName() + " — mod " + session.modVersion()
                             + ", uploaded " + session.tilesUploaded().get()
                             + ", received " + session.tilesSent().get()
-                            + ", " + (session.bytesSent().get() / 1024) + " KiB sent",
+                            + ", " + (session.bytesSent().get() / 1024) + " KiB sent"
+                            + (session.pendingTileCount() > 0
+                                    ? ", " + session.pendingTileCount() + " queued" : ""),
                     NamedTextColor.DARK_GRAY));
         }
     }

@@ -162,7 +162,6 @@ public final class WorldWaypointHud implements HudElement {
         }
 
         int color = Shapes.withAlpha(0xFF000000 | marker.waypoint().color(), marker.alpha());
-        int outline = Shapes.withAlpha(0xFF000000, marker.alpha());
         String initials = initials(marker.waypoint().name());
 
         Matrix3x2fStack pose = graphics.pose();
@@ -172,7 +171,7 @@ public final class WorldWaypointHud implements HudElement {
 
         // The pin's point sits on the waypoint itself, with the body carrying the initials above it.
         float halfWidth = config.worldWaypointIconSize;
-        Shapes.pin(graphics, 0.0F, 0.0F, halfWidth, color, outline);
+        Shapes.pin(graphics, 0.0F, 0.0F, halfWidth, color);
         // Text sits on a coloured icon, so pick whichever of black or white reads against it.
         graphics.centeredText(minecraft.font, initials,
                 0, Math.round(Shapes.pinBodyCentre(0.0F, halfWidth)) - 4,

@@ -29,7 +29,10 @@ public final class PlayerSession {
     private final AtomicInteger streamIds = new AtomicInteger();
 
     private final RateLimiter uploadLimiter;
-    private final RateLimiter requestLimiter;
+
+    /** Tiles this client has asked for and not yet been sent, drained at the configured rate. */
+    private final Queue<PendingTile> pendingTiles = new ConcurrentLinkedQueue<>();
+    private final AtomicInteger pendingTileCount = new AtomicInteger();
 
     /** Regions the client is currently watching, as {@code MapCoords.key} values. */
     private final Set<Long> subscribedRegions = ConcurrentHashMap.newKeySet();
@@ -51,12 +54,10 @@ public final class PlayerSession {
         this.playerId = playerId;
         this.playerName = playerName;
         this.uploadLimiter = new RateLimiter(config.maxUploadsPerSecond());
-        this.requestLimiter = new RateLimiter(config.maxTileRequestsPerSecond());
     }
 
     public void applyConfig(PluginConfig config) {
         uploadLimiter.setRate(config.maxUploadsPerSecond());
-        requestLimiter.setRate(config.maxTileRequestsPerSecond());
     }
 
     public UUID playerId() {
@@ -83,8 +84,39 @@ public final class PlayerSession {
         return uploadLimiter.tryAcquire();
     }
 
-    public boolean tryRequest(int permits) {
-        return requestLimiter.tryAcquire(permits);
+    /**
+     * Queues a tile to send later.
+     *
+     * @return false if the backlog is already at {@code max}, so the caller can stop adding
+     */
+    public boolean queueTile(PendingTile tile, int max) {
+        if (pendingTileCount.get() >= max) {
+            return false;
+        }
+        pendingTiles.add(tile);
+        pendingTileCount.incrementAndGet();
+        return true;
+    }
+
+    public PendingTile pollTile() {
+        PendingTile tile = pendingTiles.poll();
+        if (tile != null) {
+            pendingTileCount.decrementAndGet();
+        }
+        return tile;
+    }
+
+    public int pendingTileCount() {
+        return pendingTileCount.get();
+    }
+
+    public void clearPendingTiles() {
+        pendingTiles.clear();
+        pendingTileCount.set(0);
+    }
+
+    /** A tile owed to a client. */
+    public record PendingTile(String dimension, int chunkX, int chunkZ) {
     }
 
     public boolean handshakeComplete() {

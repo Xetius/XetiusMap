@@ -117,7 +117,10 @@ public final class XetiusMapPlugin extends JavaPlugin implements Listener {
     private void scheduleTasks(PluginConfig cfg) {
         tasks.forEach(BukkitTask::cancel);
         tasks.clear();
-        tasks.add(getServer().getScheduler().runTaskTimer(this, bus::flush, 1L, 1L));
+        tasks.add(getServer().getScheduler().runTaskTimer(this, () -> {
+            tiles.drainRequests();
+            bus.flush();
+        }, 1L, 1L));
         tasks.add(getServer().getScheduler().runTaskTimer(this, entities::tick,
                 cfg.radarIntervalTicks(), cfg.radarIntervalTicks()));
         tasks.add(getServer().getScheduler().runTaskTimer(this, this::flushStore, 600L, 600L));

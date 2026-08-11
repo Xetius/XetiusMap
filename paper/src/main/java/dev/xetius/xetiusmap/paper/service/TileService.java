@@ -144,50 +144,75 @@ public final class TileService {
         }
     }
 
+    /**
+     * Queues the requested tiles. They are sent by {@link #drainRequests()} at the configured rate
+     * rather than all at once.
+     *
+     * <p>This used to serve the batch immediately and reject it outright when it exceeded the
+     * per-second budget — which a full-sized request always did, because a client may ask for more
+     * chunks in one packet than the budget allows per second. The rejected tiles were never
+     * re-requested, so the map kept permanent holes. Queueing means a large request is slow, never
+     * lost.
+     */
     public void handleRequest(PlayerSession session, C2S.TileRequest request) {
         PluginConfig cfg = config.get();
         if (!cfg.allowsDimension(request.dimension()) || request.chunks().isEmpty()) {
             return;
         }
-        if (!session.tryRequest(request.chunks().size())) {
-            bus.send(session, new S2C.Notice(S2C.Notice.Level.WARNING,
-                    "Map downloads are being throttled; the map will fill in more slowly."));
-            return;
+        for (ChunkRef chunk : request.chunks()) {
+            if (!session.queueTile(
+                    new PlayerSession.PendingTile(request.dimension(), chunk.x(), chunk.z()),
+                    MAX_PENDING_TILES)) {
+                break;
+            }
         }
+    }
 
+    /** Main thread, once per tick: hands each client its share of the tile budget. */
+    public void drainRequests() {
+        int perTick = Math.max(1, config.get().maxTileRequestsPerSecond() / 20);
+        for (PlayerSession session : bus.activeSessions()) {
+            if (session.pendingTileCount() == 0) {
+                continue;
+            }
+            List<PlayerSession.PendingTile> batch = new ArrayList<>(perTick);
+            for (int i = 0; i < perTick; i++) {
+                PlayerSession.PendingTile tile = session.pollTile();
+                if (tile == null) {
+                    break;
+                }
+                batch.add(tile);
+            }
+            if (!batch.isEmpty()) {
+                serve(session, batch);
+            }
+        }
+    }
+
+    private void serve(PlayerSession session, List<PlayerSession.PendingTile> batch) {
         io.execute(() -> {
-            List<ChunkRef> missing = new ArrayList<>();
-            for (ChunkRef chunk : request.chunks()) {
+            for (PlayerSession.PendingTile tile : batch) {
                 try {
-                    RegionFile.TileMeta meta = store.meta(request.dimension(), chunk.x(), chunk.z());
+                    RegionFile.TileMeta meta = store.meta(tile.dimension(), tile.chunkX(), tile.chunkZ());
                     if (meta == null) {
-                        missing.add(chunk);
                         continue;
                     }
-                    byte[] blob = store.read(request.dimension(), chunk.x(), chunk.z());
+                    byte[] blob = store.read(tile.dimension(), tile.chunkX(), tile.chunkZ());
                     if (blob == null) {
-                        missing.add(chunk);
                         continue;
                     }
                     bus.send(session, new S2C.TileData(
-                            request.dimension(), chunk.x(), chunk.z(), meta.revision(), meta.hash(), blob));
+                            tile.dimension(), tile.chunkX(), tile.chunkZ(), meta.revision(), meta.hash(), blob));
                     session.tilesSent().incrementAndGet();
                     tilesServed.incrementAndGet();
                 } catch (IOException e) {
-                    logger.log(Level.WARNING, e,
-                            () -> "Failed to read tile " + chunk.x() + "," + chunk.z() + " of " + request.dimension());
-                    missing.add(chunk);
-                }
-            }
-            if (!missing.isEmpty()) {
-                // Told explicitly, the client stops asking and can render the gap as unexplored.
-                for (int from = 0; from < missing.size(); from += Protocol.MAX_TILE_REQUESTS_PER_PACKET) {
-                    int to = Math.min(missing.size(), from + Protocol.MAX_TILE_REQUESTS_PER_PACKET);
-                    bus.send(session, new S2C.TileMissing(request.dimension(), List.copyOf(missing.subList(from, to))));
+                    logger.log(Level.WARNING, e, () -> "Failed to read tile "
+                            + tile.chunkX() + "," + tile.chunkZ() + " of " + tile.dimension());
                 }
             }
         });
     }
+
 
     /**
      * Records what the client is watching and replies with an index per region, so the client can
@@ -268,6 +293,9 @@ public final class TileService {
     /** Counts a server owner can read off {@code /xmap stats} to tune the rate limits. */
     public record Stats(long accepted, long duplicates, long rejected, long served, long revision, int dimensions) {
     }
+
+    /** Cap on a client's outstanding tile backlog, so a flood of requests cannot grow without end. */
+    private static final int MAX_PENDING_TILES = 16_384;
 
     /** Total tiles stored for a dimension, for {@code /xmap stats}. Runs on the store thread. */
     public void countTiles(String dimension, java.util.function.LongConsumer onDone) {

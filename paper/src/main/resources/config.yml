@@ -13,8 +13,10 @@ map:
   # Dimensions to store maps for, by their level key. Leave empty for every dimension.
   # e.g. ['minecraft:overworld', 'minecraft:the_nether']
   dimensions: []
-  # Per-player limits. Tiles above these rates are dropped, not queued.
+  # Uploads above this rate are dropped; the client simply renders the chunk again later.
   max-uploads-per-second: 30
+  # Downloads are paced, not dropped: a client asking for more than this waits rather than
+  # losing the tiles, so the map fills in steadily instead of ending up with holes.
   max-tile-requests-per-second: 400
   # Outgoing plugin-message frames per player per tick. Raising this fills maps in
   # faster at the cost of more bandwidth per client.
