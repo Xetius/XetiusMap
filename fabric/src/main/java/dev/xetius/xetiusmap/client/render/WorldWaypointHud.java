@@ -172,10 +172,11 @@ public final class WorldWaypointHud implements HudElement {
         // The pin's point sits on the waypoint itself, with the body carrying the initials above it.
         float halfWidth = config.worldWaypointIconSize;
         Shapes.pin(graphics, 0.0F, 0.0F, halfWidth, color);
-        // Text sits on a coloured icon, so pick whichever of black or white reads against it.
+        // Always white. Minecraft draws text with a dark drop shadow, which gives white an edge
+        // even on a pale marker; black gets no such help and turns muddy on anything mid-toned.
         graphics.centeredText(minecraft.font, initials,
                 0, Math.round(Shapes.pinBodyCentre(0.0F, halfWidth)) - 4,
-                Shapes.withAlpha(contrastingText(marker.waypoint().color()), marker.alpha()));
+                Shapes.withAlpha(0xFFFFFFFF, marker.alpha()));
 
         if (config.showWaypointDistance) {
             graphics.centeredText(minecraft.font, formatDistance(marker.distance()),
@@ -219,15 +220,6 @@ public final class WorldWaypointHud implements HudElement {
         return word.length() == 1
                 ? String.valueOf(Character.toUpperCase(word.charAt(0)))
                 : "" + Character.toUpperCase(word.charAt(0)) + Character.toLowerCase(word.charAt(1));
-    }
-
-    /** Black on light markers, white on dark ones, by perceived luminance. */
-    static int contrastingText(int rgb) {
-        int r = (rgb >> 16) & 0xFF;
-        int g = (rgb >> 8) & 0xFF;
-        int b = rgb & 0xFF;
-        double luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
-        return luminance > 0.55 ? 0xFF101010 : 0xFFFFFFFF;
     }
 
     private record Projected(Waypoint waypoint, float screenX, float screenY,
