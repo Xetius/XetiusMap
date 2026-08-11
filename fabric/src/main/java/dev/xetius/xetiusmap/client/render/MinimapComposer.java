@@ -24,6 +24,13 @@ public final class MinimapComposer implements AutoCloseable {
     /** Shown where nothing has been mapped yet. */
     private static final int UNEXPLORED = 0x30101418;
 
+    /**
+     * Ceiling on the composed image, in texels. A GUI scale of 4 takes a 128 pixel minimap to 512
+     * texels, which is cheap; without a cap a 512 pixel minimap on a high scale would ask for a
+     * 2048 square image and a four megapixel rebuild every time the player moves.
+     */
+    private static final int MAX_TEXELS = 1024;
+
     private final Identifier textureId = XetiusMap.id("minimap");
 
     private NativeImage image;
@@ -49,27 +56,34 @@ public final class MinimapComposer implements AutoCloseable {
         float scale = ClientConfig.Zoom.scale(config.minimapZoom);
         float effectiveYaw = config.minimapRotate ? yaw : 0.0F;
 
-        ensureSize(requestedSize);
+        // Compose at the window's real pixel density. The minimap is placed in GUI coordinates, so
+        // a texture built at GUI size gets stretched by the GUI scale — on a 5120 wide display that
+        // is a three or four times upscale, and it looks exactly as soft as that sounds.
+        int guiScale = Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
+        int texels = Math.min(MAX_TEXELS, requestedSize * guiScale);
+        float texelsPerBlock = scale * texels / (float) requestedSize;
+
+        ensureSize(texels);
         if (image == null) {
             return null;
         }
 
         boolean unchanged = dimension.equals(lastDimension)
                 && config.minimapShape == lastShape
-                && scale == lastScale
+                && texelsPerBlock == lastScale
                 && store.generation() == lastGeneration
-                && Math.abs(centreX - lastCentreX) * scale < 0.5
-                && Math.abs(centreZ - lastCentreZ) * scale < 0.5
+                && Math.abs(centreX - lastCentreX) * texelsPerBlock < 0.5
+                && Math.abs(centreZ - lastCentreZ) * texelsPerBlock < 0.5
                 && Math.abs(angleDelta(effectiveYaw, lastYaw)) < 0.75F;
         if (unchanged) {
             return textureId;
         }
 
-        compose(store, dimension, config, centreX, centreZ, effectiveYaw, scale);
+        compose(store, dimension, config, centreX, centreZ, effectiveYaw, texelsPerBlock);
 
         lastDimension = dimension;
         lastShape = config.minimapShape;
-        lastScale = scale;
+        lastScale = texelsPerBlock;
         lastGeneration = store.generation();
         lastCentreX = centreX;
         lastCentreZ = centreZ;
@@ -117,7 +131,8 @@ public final class MinimapComposer implements AutoCloseable {
         RegionRaster cached = null;
         int cachedRegionX = Integer.MIN_VALUE;
         int cachedRegionZ = Integer.MIN_VALUE;
-        int blocksPerPixel = scale >= 0.5F
+        // `scale` is already texels per block, so this is a real pixel density.
+        int blocksPerPixel = scale >= 1.0F
                 ? RegionRaster.DETAIL_BLOCKS_PER_PIXEL
                 : RegionRaster.COARSE_BLOCKS_PER_PIXEL;
 

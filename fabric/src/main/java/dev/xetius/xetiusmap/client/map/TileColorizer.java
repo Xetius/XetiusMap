@@ -5,6 +5,8 @@ import dev.xetius.xetiusmap.common.tile.ChunkTile;
 import net.minecraft.client.color.block.BlockColors;
 import net.minecraft.client.color.block.BlockTintSource;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.BiomeColors;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.ARGB;
 import net.minecraft.world.level.block.state.BlockState;
@@ -76,7 +78,7 @@ public final class TileColorizer {
                 BlockState state = level.getBlockState(pos);
 
                 int depth = 0;
-                if (!state.getFluidState().isEmpty()) {
+                if (state.getFluidState().is(FluidTags.WATER)) {
                     depth = fluidDepth(level, pos, worldX, worldZ, y, minY);
                 }
 
@@ -158,17 +160,33 @@ public final class TileColorizer {
             return flat;
         }
 
+        // Water never tints through BlockColors: Blocks.WATER is registered with a source that only
+        // implements colorAsTerrainParticle, so colorInWorld falls back to the untinted sentinel.
+        // Asking the biome directly is what gives warm seas their green cast and cold ones their
+        // deep blue.
+        if (state.getFluidState().is(FluidTags.WATER)) {
+            return usableTint(BiomeColors.getAverageWaterColor(level, pos), flat);
+        }
+
         List<BlockTintSource> tints = blockColors.getTintSources(state);
         if (tints.isEmpty()) {
             return flat;
         }
         try {
-            int tint = tints.getFirst().colorInWorld(state, level, pos) & 0xFFFFFF;
-            return tint == 0 ? flat : tint;
+            return usableTint(tints.getFirst().colorInWorld(state, level, pos), flat);
         } catch (RuntimeException e) {
             // A modded tint source that dislikes being asked out of context must not break the map.
             return flat;
         }
+    }
+
+    /**
+     * A tint of white is the "no tint" sentinel. Taking it literally is what turned water grey:
+     * white multiplied by the depth shading is exactly mid-grey.
+     */
+    private static int usableTint(int tint, int fallback) {
+        int rgb = tint & 0xFFFFFF;
+        return rgb == 0 || rgb == 0xFFFFFF ? fallback : rgb;
     }
 
     /**

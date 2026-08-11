@@ -12,8 +12,11 @@ public final class Protocol {
     /**
      * Bumped whenever the wire format changes incompatibly. The server refuses a client whose
      * version differs and tells it why, rather than letting it fail in confusing ways later.
+     *
+     * <p>2: mob markers carry whether sky light reaches them, so the client can separate surface
+     * creatures from cave spawns.
      */
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
 
     /**
      * Bukkit caps a plugin message at {@code Messenger.MAX_MESSAGE_SIZE} (32766 bytes). Fragments

@@ -93,13 +93,19 @@ public final class EntityTracker {
                 palette.add(type);
                 index = palette.size() - 1;
             }
+            // Without a server to ask, the heightmap is the closest available stand-in for
+            // "is this creature out in the open".
+            boolean skyVisible = minecraft.level.getHeight(
+                    net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING,
+                    entity.getBlockX(), entity.getBlockZ()) <= entity.getBlockY();
             mobs.add(new Markers.MobMarker(
                     index,
                     categorise(entity),
                     entity.getBlockX(),
                     entity.getBlockY(),
                     entity.getBlockZ(),
-                    entity.getYRot()));
+                    entity.getYRot(),
+                    skyVisible));
         }
 
         latest = new S2C.EntityUpdate(dimension, palette, players, mobs);

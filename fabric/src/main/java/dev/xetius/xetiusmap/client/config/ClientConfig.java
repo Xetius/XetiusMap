@@ -52,10 +52,20 @@ public final class ClientConfig {
     public boolean showWaypoints = true;
     public boolean showPlayerNames = true;
 
-    /**
-     * Only show mobs within this many blocks above or below you. Keeps cave spawns off the map
-     * while you are on the surface, and surface mobs off it while you are underground. 0 shows all.
-     */
+    /** Which mobs are worth drawing. */
+    public enum MobVisibility {
+        /** Only creatures out under the sky, however high above them you happen to be. */
+        SURFACE,
+        /** Surface creatures, plus anything near your own level — the one to use while caving. */
+        SURFACE_AND_NEARBY,
+        /** Only what is near your own level. */
+        NEARBY,
+        ALL
+    }
+
+    public MobVisibility mobVisibility = MobVisibility.SURFACE;
+
+    /** Vertical reach of the NEARBY modes, in blocks. */
     public int mobVerticalRange = 24;
 
     /** Name the thing under the cursor on the world map. */
@@ -103,10 +113,20 @@ public final class ClientConfig {
     public static final float BASE_TEXT_SIZE = 9.0F;
 
     /**
-     * Whether a mob at {@code mobY} is close enough vertically to the viewer to be drawn. This is
-     * what keeps cave spawns off the map while you stand on the surface, and vice versa.
+     * Whether a mob should be drawn. Surface creatures are shown regardless of how far above them
+     * the viewer is, which is what makes the map useful from the air; cave spawns only appear once
+     * you are down among them.
      */
-    public boolean showsMobAtHeight(int mobY, int viewerY) {
+    public boolean showsMob(boolean skyVisible, int mobY, int viewerY) {
+        return switch (mobVisibility) {
+            case ALL -> true;
+            case SURFACE -> skyVisible;
+            case NEARBY -> nearViewer(mobY, viewerY);
+            case SURFACE_AND_NEARBY -> skyVisible || nearViewer(mobY, viewerY);
+        };
+    }
+
+    private boolean nearViewer(int mobY, int viewerY) {
         return mobVerticalRange <= 0 || Math.abs(mobY - viewerY) <= mobVerticalRange;
     }
 
@@ -130,6 +150,9 @@ public final class ClientConfig {
         worldWaypointIconSize = clamp(worldWaypointIconSize, 3, 24);
         worldWaypointFocusPercent = clamp(worldWaypointFocusPercent, 1, 50);
         mobVerticalRange = clamp(mobVerticalRange, 0, 512);
+        if (mobVisibility == null) {
+            mobVisibility = MobVisibility.SURFACE;
+        }
         if (minimapAnchor == null) {
             minimapAnchor = Anchor.TOP_RIGHT;
         }

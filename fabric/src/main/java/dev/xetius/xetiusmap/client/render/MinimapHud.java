@@ -94,7 +94,7 @@ public final class MinimapHud implements HudElement {
                     ? 0 : Minecraft.getInstance().player.getBlockY();
             List<String> palette = client.entities().typePalette();
             for (Markers.MobMarker mob : client.entities().mobs()) {
-                if (!config.showsMobAtHeight(mob.y(), viewerY)) {
+                if (!config.showsMob(mob.skyVisible(), mob.y(), viewerY)) {
                     continue;
                 }
                 float[] at = MinimapComposer.project(mob.x() + 0.5, mob.z() + 0.5,

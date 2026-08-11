@@ -132,7 +132,15 @@ public final class ConfigScreen extends Screen {
         toggle(1, "Coordinates", () -> config.showCoordinates, v -> config.showCoordinates = v);
         toggle(1, "Biome name", () -> config.showBiome, v -> config.showBiome = v);
         toggle(1, "Compass letters", () -> config.showDirections, v -> config.showDirections = v);
-        slider(1, "Mob height range", 0, 128, 4, config.mobVerticalRange,
+        cycle(1, "Show mobs", () -> switch (config.mobVisibility) {
+                    case SURFACE -> "on the surface";
+                    case SURFACE_AND_NEARBY -> "surface + nearby";
+                    case NEARBY -> "near my level";
+                    case ALL -> "everywhere";
+                },
+                () -> config.mobVisibility =
+                        next(ClientConfig.MobVisibility.values(), config.mobVisibility));
+        slider(1, "Nearby means", 0, 128, 4, config.mobVerticalRange,
                 v -> v <= 0 ? "any height" : String.format(Locale.ROOT, "\u00b1%.0f m", v),
                 v -> config.mobVerticalRange = (int) v);
     }

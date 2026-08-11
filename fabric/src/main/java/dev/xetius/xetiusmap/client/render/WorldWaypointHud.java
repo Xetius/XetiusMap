@@ -170,15 +170,17 @@ public final class WorldWaypointHud implements HudElement {
         pose.translate(marker.screenX(), marker.screenY());
         pose.scale(marker.scale());
 
-        int iconRadius = config.worldWaypointIconSize;
-        Shapes.diamond(graphics, 0, 0, iconRadius, color, outline);
+        // The pin's point sits on the waypoint itself, with the body carrying the initials above it.
+        float halfWidth = config.worldWaypointIconSize;
+        Shapes.pin(graphics, 0.0F, 0.0F, halfWidth, color, outline);
         // Text sits on a coloured icon, so pick whichever of black or white reads against it.
-        graphics.centeredText(minecraft.font, initials, 0, -4,
+        graphics.centeredText(minecraft.font, initials,
+                0, Math.round(Shapes.pinBodyCentre(0.0F, halfWidth)) - 4,
                 Shapes.withAlpha(contrastingText(marker.waypoint().color()), marker.alpha()));
 
         if (config.showWaypointDistance) {
             graphics.centeredText(minecraft.font, formatDistance(marker.distance()),
-                    0, iconRadius + 3, Shapes.withAlpha(0xFFD6D6D6, marker.alpha()));
+                    0, 3, Shapes.withAlpha(0xFFD6D6D6, marker.alpha()));
         }
         pose.popMatrix();
 
@@ -186,9 +188,10 @@ public final class WorldWaypointHud implements HudElement {
             // Drawn in its own transform so the name stays legible however far away it is.
             float nameScale = Math.max(NAME_MIN_SCALE, marker.scale());
             pose.pushMatrix();
-            pose.translate(marker.screenX(), marker.screenY() - (iconRadius + 4) * marker.scale());
+            pose.translate(marker.screenX(),
+                    marker.screenY() + Shapes.pinTop(0.0F, halfWidth) * marker.scale());
             pose.scale(nameScale);
-            graphics.centeredText(minecraft.font, marker.waypoint().name(), 0, -9,
+            graphics.centeredText(minecraft.font, marker.waypoint().name(), 0, -11,
                     Shapes.withAlpha(0xFFFFFFFF, marker.alpha()));
             pose.popMatrix();
         }

@@ -192,7 +192,12 @@ public final class WorldMapScreen extends Screen {
 
     private void drawTerrain(GuiGraphicsExtractor graphics, MapClient client) {
         float pixelsPerBlock = pixelsPerBlock();
-        int blocksPerPixel = pixelsPerBlock >= 0.5F
+        // Detail is chosen on real screen pixels, not GUI ones. At a GUI scale of 4 a nominal
+        // quarter-pixel-per-block view is really a full pixel per block, and picking the coarse
+        // raster there threw away detail the screen could actually show.
+        int guiScale = minecraft == null ? 1 : Math.max(1, minecraft.getWindow().getGuiScale());
+        float physicalPixelsPerBlock = pixelsPerBlock * guiScale;
+        int blocksPerPixel = physicalPixelsPerBlock >= 1.0F
                 ? RegionRaster.DETAIL_BLOCKS_PER_PIXEL
                 : RegionRaster.COARSE_BLOCKS_PER_PIXEL;
 
@@ -240,7 +245,7 @@ public final class WorldMapScreen extends Screen {
             int viewerY = minecraft != null && minecraft.player != null ? minecraft.player.getBlockY() : 0;
             List<String> palette = client.entities().typePalette();
             for (Markers.MobMarker mob : client.entities().mobs()) {
-                if (!config.showsMobAtHeight(mob.y(), viewerY)) {
+                if (!config.showsMob(mob.skyVisible(), mob.y(), viewerY)) {
                     continue;
                 }
                 float x = (float) screenX(mob.x() + 0.5);
@@ -327,7 +332,7 @@ public final class WorldMapScreen extends Screen {
             int viewerY = minecraft != null && minecraft.player != null ? minecraft.player.getBlockY() : 0;
             List<String> palette = client.entities().typePalette();
             for (Markers.MobMarker mob : client.entities().mobs()) {
-                if (!config.showsMobAtHeight(mob.y(), viewerY)
+                if (!config.showsMob(mob.skyVisible(), mob.y(), viewerY)
                         || mob.typeIndex() < 0 || mob.typeIndex() >= palette.size()) {
                     continue;
                 }

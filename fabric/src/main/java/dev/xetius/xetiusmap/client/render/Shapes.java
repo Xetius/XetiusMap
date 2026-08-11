@@ -75,7 +75,40 @@ public final class Shapes {
         }
     }
 
-    /** Outlined diamond, the shape used for every waypoint marker. */
+    /** Height of the point below the body, as a fraction of the half-width. */
+    private static final float PIN_POINT = 0.8F;
+
+    /**
+     * The waypoint marker: a square whose bottom edge is replaced by two edges meeting at a fifth
+     * vertex, so it reads as pointing down at the spot it marks. {@code tipX, tipY} is that point,
+     * which is the position being marked; the body sits above it.
+     */
+    public static void pin(GuiGraphicsExtractor graphics, float tipX, float tipY, float halfWidth,
+                           int color, int outline) {
+        pinShape(graphics, tipX, tipY, halfWidth + 1.0F, outline);
+        pinShape(graphics, tipX, tipY, halfWidth, color);
+    }
+
+    private static void pinShape(GuiGraphicsExtractor graphics, float tipX, float tipY,
+                                 float halfWidth, int color) {
+        float bodyBottom = tipY - halfWidth * PIN_POINT;
+        float bodyTop = bodyBottom - halfWidth * 2.0F;
+        graphics.fill(Math.round(tipX - halfWidth), Math.round(bodyTop),
+                Math.round(tipX + halfWidth), Math.round(bodyBottom), color);
+        triangle(graphics, tipX - halfWidth, bodyBottom, tipX + halfWidth, bodyBottom, tipX, tipY, color);
+    }
+
+    /** Vertical centre of a pin's body, for placing a label inside it. */
+    public static float pinBodyCentre(float tipY, float halfWidth) {
+        return tipY - halfWidth * PIN_POINT - halfWidth;
+    }
+
+    /** Top edge of a pin's body, for placing a label above it. */
+    public static float pinTop(float tipY, float halfWidth) {
+        return tipY - halfWidth * (PIN_POINT + 2.0F);
+    }
+
+    /** Outlined diamond, kept for markers that should read as a simple point. */
     public static void diamond(GuiGraphicsExtractor graphics, int x, int y, int radius, int color, int outline) {
         for (int row = -radius - 1; row <= radius + 1; row++) {
             int half = radius + 1 - Math.abs(row);

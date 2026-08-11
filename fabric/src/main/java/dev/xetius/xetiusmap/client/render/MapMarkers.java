@@ -15,6 +15,9 @@ public final class MapMarkers {
     private static final int OUTLINE = 0xFF000000;
     private static final int LABEL_BACKDROP = 0xA0000000;
 
+    /** Half-width of the waypoint pin on the map views. */
+    private static final float PIN_HALF_WIDTH = 4.0F;
+
     private MapMarkers() {
     }
 
@@ -25,17 +28,11 @@ public final class MapMarkers {
         int y = Math.round(screenY);
         int color = 0xFF000000 | waypoint.color();
 
-        for (int row = -4; row <= 4; row++) {
-            int halfWidth = 4 - Math.abs(row);
-            graphics.fill(x - halfWidth - 1, y + row, x + halfWidth + 2, y + row + 1, OUTLINE);
-        }
-        for (int row = -3; row <= 3; row++) {
-            int halfWidth = 3 - Math.abs(row);
-            graphics.fill(x - halfWidth, y + row, x + halfWidth + 1, y + row + 1, color);
-        }
+        Shapes.pin(graphics, screenX, screenY, PIN_HALF_WIDTH, color, OUTLINE);
 
         if (withLabel) {
-            drawLabel(graphics, x, y - 14, waypoint.name(), 0xFFFFFFFF);
+            drawLabel(graphics, x, Math.round(Shapes.pinTop(screenY, PIN_HALF_WIDTH)) - 10,
+                    waypoint.name(), 0xFFFFFFFF);
         }
     }
 

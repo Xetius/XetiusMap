@@ -131,7 +131,7 @@ class PacketCodecTest {
                 "minecraft:overworld",
                 List.of("minecraft:zombie", "minecraft:cow"),
                 List.of(new Markers.PlayerMarker(ID, "Xetius", "minecraft:overworld", 10, 70, -20, 90.0F)),
-                List.of(new Markers.MobMarker(1, Markers.MobCategory.PASSIVE, 12, 71, -25, 180.0F))
+                List.of(new Markers.MobMarker(1, Markers.MobCategory.PASSIVE, 12, 71, -25, 180.0F, true))
         );
         S2C.EntityUpdate decoded = roundTripS2C(update);
 
@@ -141,6 +141,7 @@ class PacketCodecTest {
         assertEquals(10, decoded.players().getFirst().x());
         assertEquals(1, decoded.mobs().size());
         assertEquals(Markers.MobCategory.PASSIVE, decoded.mobs().getFirst().category());
+        assertTrue(decoded.mobs().getFirst().skyVisible(), "sky exposure must survive the round trip");
         // Yaw survives quantisation to within one step of 360/256 degrees.
         assertTrue(Math.abs(decoded.mobs().getFirst().yaw() - 180.0F) < 1.5F);
     }

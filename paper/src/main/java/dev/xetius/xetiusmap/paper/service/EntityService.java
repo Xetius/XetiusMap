@@ -118,7 +118,8 @@ public final class EntityService {
                         location.getBlockX(),
                         clampY(location.getBlockY()),
                         location.getBlockZ(),
-                        location.getYaw()
+                        location.getYaw(),
+                        seesSky(location)
                 ));
             }
         }
@@ -146,8 +147,20 @@ public final class EntityService {
             return new ArrayList<>(viewer.getWorld().getNearbyEntities(centre, halfX, 512.0, halfZ));
         }
 
+        // The vertical extent spans the whole world rather than matching the horizontal radius:
+        // otherwise flying high enough silently dropped every creature on the ground below.
         double radius = cfg.mobRadius();
-        return new ArrayList<>(viewer.getWorld().getNearbyEntities(viewer.getLocation(), radius, radius, radius));
+        double height = viewer.getWorld().getMaxHeight() - viewer.getWorld().getMinHeight();
+        return new ArrayList<>(viewer.getWorld().getNearbyEntities(viewer.getLocation(), radius, height, radius));
+    }
+
+    /**
+     * Whether sky light reaches this spot. This is what separates a creature standing out on the
+     * land from one in a cave, and it is deliberately light-based rather than a heightmap
+     * comparison so that a mob under a tree still counts as being outside.
+     */
+    private static boolean seesSky(Location location) {
+        return location.getBlock().getLightFromSky() > 0;
     }
 
     private boolean isVisibleTo(Player target, Player viewer, PluginConfig cfg) {

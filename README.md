@@ -38,8 +38,9 @@ in the same on-disk format, so nothing breaks — you simply do not share.
   pinned to its rim with an arrow pointing the way, so you can still navigate to them.
 - **Teleport to a waypoint**, behind a permission that is granted to nobody by default.
 - **Live radar** — all online players across all dimensions, plus mobs within a configurable radius.
-  Players show as their own skin's face and mobs as their species icon, and a vertical range setting
-  keeps cave spawns off the map while you are on the surface.
+  Players show as their own skin's face and mobs as their species icon. By default only creatures
+  out under the sky are drawn — visible however high above them you are — so cave spawns stay off
+  the map until you go down among them.
 - **All dimensions**, including maps of dimensions you are not currently in.
 - **Tabbed settings screen** with sliders for every size and distance, reachable from **Mod Menu**
   or a bindable key. Mod Menu is optional — it is a compile-only dependency and the mod is happy

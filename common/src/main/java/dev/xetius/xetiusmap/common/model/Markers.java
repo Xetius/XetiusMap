@@ -47,10 +47,14 @@ public final class Markers {
      * A non-player entity near the recipient. The type name is not repeated per entity — it is an
      * index into the palette carried by the enclosing packet.
      *
-     * @param category see {@link MobCategory}, used to pick the dot colour without the client
-     *                 needing to know every entity type
+     * @param category   see {@link MobCategory}, used to pick the dot colour without the client
+     *                   needing to know every entity type
+     * @param skyVisible whether sky light reaches the mob, which is how the client tells a creature
+     *                   standing on the surface from one in a cave. Only the server can answer this
+     *                   for mobs beyond the viewer's render distance, so it travels on the wire.
      */
-    public record MobMarker(int typeIndex, byte category, int x, int y, int z, float yaw) {
+    public record MobMarker(int typeIndex, byte category, int x, int y, int z, float yaw,
+                            boolean skyVisible) {
 
         public void write(ByteWriter w) {
             w.writeVarInt(typeIndex);
@@ -59,6 +63,7 @@ public final class Markers {
             w.writeShort(y);
             w.writeInt(z);
             w.writeByte(encodeYaw(yaw));
+            w.writeBoolean(skyVisible);
         }
 
         public static MobMarker read(ByteReader r) {
@@ -68,7 +73,8 @@ public final class Markers {
                     r.readInt(),
                     r.readShort(),
                     r.readInt(),
-                    decodeYaw(r.readByte())
+                    decodeYaw(r.readByte()),
+                    r.readBoolean()
             );
         }
     }
