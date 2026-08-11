@@ -275,6 +275,12 @@ public final class XMapCommand implements CommandExecutor, TabCompleter {
                 "  waypoints " + waypoints.size() + ", connected clients " + bus.activeSessions().size(),
                 NamedTextColor.GRAY));
 
+        for (World w : plugin.getServer().getWorlds()) {
+            java.io.File dir = dev.xetius.xetiusmap.paper.service.RegionScanner.regionDirectory(w);
+            sender.sendMessage(Component.text("  " + w.getKey() + "  folder=" + w.getWorldFolder()
+                    + "  regions=" + (dir == null ? "NOT FOUND" : dir.toString()), NamedTextColor.GRAY));
+        }
+
         for (String folder : tiles.storedDimensionFolders()) {
             sender.sendMessage(Component.text("  " + folder + ": "
                     + regionCountForFolder(folder) + " region file(s)", NamedTextColor.GRAY));
