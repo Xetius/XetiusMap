@@ -48,6 +48,7 @@ public final class TileService {
     private final AtomicLong duplicateUploads = new AtomicLong();
     private final AtomicLong rejectedUploads = new AtomicLong();
     private final AtomicLong tilesServed = new AtomicLong();
+    private final AtomicLong generatedTiles = new AtomicLong();
 
     public TileService(Logger logger,
                        Supplier<PluginConfig> config,
@@ -286,12 +287,49 @@ public final class TileService {
                 rejectedUploads.get(),
                 tilesServed.get(),
                 revisions.current(),
-                store.dimensionFolders().size()
+                store.dimensionFolders().size(),
+                generatedTiles.get()
         );
     }
 
     /** Counts a server owner can read off {@code /xmap stats} to tune the rate limits. */
-    public record Stats(long accepted, long duplicates, long rejected, long served, long revision, int dimensions) {
+    public record Stats(long accepted, long duplicates, long rejected, long served, long revision,
+                        int dimensions, long generated) {
+    }
+
+    /** True if a tile already exists, so a backfill can leave client-rendered work alone. */
+    public boolean hasTile(String dimension, int chunkX, int chunkZ) {
+        try {
+            return store.meta(dimension, chunkX, chunkZ) != null;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Stores a tile the server rendered itself from world data, and pushes it to anyone watching.
+     * Encoding and disk work happen on the store thread.
+     */
+    public void storeGenerated(String dimension, ChunkTile tile) {
+        io.execute(() -> {
+            try {
+                byte[] body = tile.encode();
+                long hash = TileCodec.hash(body);
+                RegionFile.TileMeta existing = store.meta(dimension, tile.chunkX(), tile.chunkZ());
+                if (existing != null && existing.hash() == hash) {
+                    return;
+                }
+                byte[] blob = TileCodec.compress(body);
+                long revision = revisions.next();
+                store.write(dimension, tile.chunkX(), tile.chunkZ(), blob, revision, hash);
+                generatedTiles.incrementAndGet();
+                broadcast(null, new S2C.TileData(
+                        dimension, tile.chunkX(), tile.chunkZ(), revision, hash, blob));
+            } catch (IOException e) {
+                logger.log(Level.WARNING, e, () -> "Failed to store a generated tile at "
+                        + tile.chunkX() + "," + tile.chunkZ());
+            }
+        });
     }
 
     /** Cap on a client's outstanding tile backlog, so a flood of requests cannot grow without end. */

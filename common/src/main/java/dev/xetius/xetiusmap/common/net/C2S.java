@@ -23,6 +23,7 @@ public sealed interface C2S extends Packet {
     int TELEPORT_REQUEST = 8;
     int ENTITY_VIEW = 9;
     int SET_HIDDEN = 10;
+    int BLOCK_PALETTE = 11;
 
     /** First thing a client sends after joining. */
     record Hello(int protocolVersion, String modVersion) implements C2S {
@@ -228,6 +229,26 @@ public sealed interface C2S extends Packet {
         }
     }
 
+    /**
+     * The block and biome colour table, sent when the server asks for it. This is what lets a
+     * server with no block knowledge of its own render chunks nobody has visited.
+     */
+    record BlockPaletteUpload(dev.xetius.xetiusmap.common.model.BlockPalette palette) implements C2S {
+        @Override
+        public int id() {
+            return BLOCK_PALETTE;
+        }
+
+        @Override
+        public void write(ByteWriter w) {
+            palette.write(w);
+        }
+
+        static BlockPaletteUpload read(ByteReader r) {
+            return new BlockPaletteUpload(dev.xetius.xetiusmap.common.model.BlockPalette.read(r));
+        }
+    }
+
     static C2S decode(byte[] data) {
         ByteReader r = new ByteReader(data);
         int id = r.readUnsignedByte();
@@ -242,6 +263,7 @@ public sealed interface C2S extends Packet {
             case TELEPORT_REQUEST -> TeleportRequest.read(r);
             case ENTITY_VIEW -> EntityView.read(r);
             case SET_HIDDEN -> SetHidden.read(r);
+            case BLOCK_PALETTE -> BlockPaletteUpload.read(r);
             default -> throw new ProtocolException("unknown client packet id " + id);
         };
     }

@@ -42,6 +42,9 @@ in the same on-disk format, so nothing breaks — you simply do not share.
   out under the sky are drawn — visible however high above them you are — so cave spawns stay off
   the map until you go down among them.
 - **All dimensions**, including maps of dimensions you are not currently in.
+- **Backfill the map from the world itself** — `/xmap generate <dimension>` renders every chunk the
+  world has already generated, so an established server gets a map of everywhere that has been
+  explored without anyone walking it again.
 - **Tabbed settings screen** with sliders for every size and distance, reachable from **Mod Menu**
   or a bindable key. Mod Menu is optional — it is a compile-only dependency and the mod is happy
   without it.
@@ -101,6 +104,7 @@ All keys are rebindable through Minecraft's own Controls screen.
 /xmap hide [on|off]
 /xmap stats
 /xmap purge <dimension> confirm
+/xmap generate <dimension> [force] | stop | status
 /xmap reload
 ```
 
@@ -137,6 +141,25 @@ of `(revision, offset, length, hash)` and blobs appended on write. The server's 
 Everything travels over one plugin-messaging channel, `xetiusmap:main`. Fabric's custom payloads and
 Bukkit's `Messenger` are the same vanilla packet underneath, so no bridge is needed; `:common`
 fragments anything larger than a single plugin message and reassembles it on the other side.
+
+### Backfilling from existing world data
+
+`/xmap generate <dimension>` renders the map for chunks nobody has visited, straight from the
+world's own files. It reads the Anvil region headers to find exactly which chunks exist, loads each
+one with generation disabled — so it never creates new terrain — and renders it a few chunks per
+tick.
+
+Because the plugin has no block knowledge of its own, it needs a colour table first: the first
+client to connect uploads one built from its registries, and the server caches it to
+`plugins/XetiusMap/palette.bin` and never asks again. Until then the command says so and does
+nothing.
+
+Generated tiles are a close match for walked ones but not identical — colours come from block
+defaults rather than being resolved per position. Chunks that already have a client-rendered tile
+are left alone unless you pass `force`.
+
+Chunks the world only partially generated are skipped, so on a freshly created world the command
+will legitimately report almost nothing to do.
 
 ### Trade-off worth knowing
 

@@ -15,8 +15,11 @@ public final class Protocol {
      *
      * <p>2: mob markers carry whether sky light reaches them, so the client can separate surface
      * creatures from cave spawns.
+     *
+     * <p>3: clients can upload a block and biome colour table, which lets the server render
+     * already-generated chunks that nobody has walked through.
      */
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
 
     /**
      * Bukkit caps a plugin message at {@code Messenger.MAX_MESSAGE_SIZE} (32766 bytes). Fragments

@@ -31,7 +31,8 @@ public record PluginConfig(
         boolean teleportAllowCrossDimension,
         boolean teleportSafeLanding,
         int maxWaypointsPerPlayer,
-        int maxWaypointsTotal
+        int maxWaypointsTotal,
+        int generateChunksPerTick
 ) {
 
     public static PluginConfig load(FileConfiguration c) {
@@ -58,7 +59,8 @@ public record PluginConfig(
                 c.getBoolean("teleport.allow-cross-dimension", true),
                 c.getBoolean("teleport.safe-landing", true),
                 clamp(c.getInt("waypoints.max-per-player", 64), 0, 100_000),
-                clamp(c.getInt("waypoints.max-total", 2000), 0, 1_000_000)
+                clamp(c.getInt("waypoints.max-total", 2000), 0, 1_000_000),
+                clamp(c.getInt("generate.chunks-per-tick", 4), 1, 64)
         );
     }
 

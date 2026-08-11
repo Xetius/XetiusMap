@@ -53,3 +53,8 @@ waypoints:
   # 0 means unlimited.
   max-per-player: 64
   max-total: 2000
+
+generate:
+  # Chunks processed per tick by /xmap generate. Higher finishes sooner but loads more chunks
+  # per tick; 4 is comfortable on a live server.
+  chunks-per-tick: 4

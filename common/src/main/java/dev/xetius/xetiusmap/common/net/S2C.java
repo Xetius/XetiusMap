@@ -21,6 +21,7 @@ public sealed interface S2C extends Packet {
     int NOTICE = 8;
     int TILE_MISSING = 9;
     int TILE_ACCEPTED = 10;
+    int PALETTE_REQUEST = 11;
 
     record HelloOk(int protocolVersion, ServerPolicy policy) implements S2C {
         @Override
@@ -294,6 +295,26 @@ public sealed interface S2C extends Packet {
         }
     }
 
+    /**
+     * Asks the client for its colour table. Sent at handshake only when the server has none cached,
+     * so the cost is paid once per server rather than once per join.
+     */
+    record PaletteRequest(String reason) implements S2C {
+        @Override
+        public int id() {
+            return PALETTE_REQUEST;
+        }
+
+        @Override
+        public void write(ByteWriter w) {
+            w.writeString(reason);
+        }
+
+        static PaletteRequest read(ByteReader r) {
+            return new PaletteRequest(r.readString());
+        }
+    }
+
     static S2C decode(byte[] data) {
         ByteReader r = new ByteReader(data);
         int id = r.readUnsignedByte();
@@ -308,6 +329,7 @@ public sealed interface S2C extends Packet {
             case NOTICE -> Notice.read(r);
             case TILE_MISSING -> TileMissing.read(r);
             case TILE_ACCEPTED -> TileAccepted.read(r);
+            case PALETTE_REQUEST -> PaletteRequest.read(r);
             default -> throw new ProtocolException("unknown server packet id " + id);
         };
     }

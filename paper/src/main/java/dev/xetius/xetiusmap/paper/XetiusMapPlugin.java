@@ -9,6 +9,8 @@ import dev.xetius.xetiusmap.common.store.TileStore;
 import dev.xetius.xetiusmap.paper.command.XMapCommand;
 import dev.xetius.xetiusmap.paper.net.MessageBus;
 import dev.xetius.xetiusmap.paper.service.EntityService;
+import dev.xetius.xetiusmap.paper.service.GenerateService;
+import dev.xetius.xetiusmap.paper.service.PaletteStore;
 import dev.xetius.xetiusmap.paper.service.TeleportService;
 import dev.xetius.xetiusmap.paper.service.TileService;
 import dev.xetius.xetiusmap.paper.service.WaypointService;
@@ -52,6 +54,8 @@ public final class XetiusMapPlugin extends JavaPlugin implements Listener {
     private WaypointService waypoints;
     private EntityService entities;
     private TeleportService teleports;
+    private PaletteStore palettes;
+    private GenerateService generate;
 
     private final List<BukkitTask> tasks = new ArrayList<>();
 
@@ -85,7 +89,11 @@ public final class XetiusMapPlugin extends JavaPlugin implements Listener {
         bus = new MessageBus(this, config::get);
         bus.register();
 
+        palettes = new PaletteStore(getLogger(), dataRoot.resolve("palette.bin"));
+        palettes.load();
+
         tiles = new TileService(getLogger(), config::get, bus, store, revisions, io);
+        generate = new GenerateService(this, config::get, tiles, palettes);
         waypoints = new WaypointService(getLogger(), dataRoot.resolve("waypoints.yml"), bus, io);
         waypoints.load();
         entities = new EntityService(this, config::get, bus);
@@ -97,7 +105,7 @@ public final class XetiusMapPlugin extends JavaPlugin implements Listener {
 
         PluginCommand command = getCommand("xmap");
         if (command != null) {
-            XMapCommand handler = new XMapCommand(this, config::get, bus, waypoints, teleports, tiles);
+            XMapCommand handler = new XMapCommand(this, config::get, bus, waypoints, teleports, tiles, generate);
             command.setExecutor(handler);
             command.setTabCompleter(handler);
         } else {
@@ -118,6 +126,7 @@ public final class XetiusMapPlugin extends JavaPlugin implements Listener {
         tasks.forEach(BukkitTask::cancel);
         tasks.clear();
         tasks.add(getServer().getScheduler().runTaskTimer(this, () -> {
+            generate.tick();
             tiles.drainRequests();
             bus.flush();
         }, 1L, 1L));
@@ -229,6 +238,13 @@ public final class XetiusMapPlugin extends JavaPlugin implements Listener {
                             view.maxChunkX(), view.maxChunkZ())
                     : null);
             case C2S.SetHidden hidden -> session.setHidden(hidden.hidden());
+            case C2S.BlockPaletteUpload upload -> {
+                // Any client's registries will do, so the first to answer wins and the rest are
+                // ignored until the stored palette is cleared.
+                if (palettes.isEmpty()) {
+                    palettes.accept(upload.palette());
+                }
+            }
             case C2S.Hello ignored -> {
                 // Already handled above; a repeat is harmless and deliberately ignored.
             }
@@ -251,6 +267,10 @@ public final class XetiusMapPlugin extends JavaPlugin implements Listener {
         session.completeHandshake(hello.modVersion());
         bus.send(session, new S2C.HelloOk(Protocol.VERSION, policyFor(session)));
         waypoints.syncTo(session);
+        if (palettes.isEmpty()) {
+            // Asked once ever, not once per join: the answer is cached to disk.
+            bus.send(session, new S2C.PaletteRequest("needed for /xmap generate"));
+        }
         getLogger().info("XetiusMap client connected: " + player.getName() + " (mod " + hello.modVersion() + ")");
     }
 

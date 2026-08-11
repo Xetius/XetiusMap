@@ -7,12 +7,14 @@ import dev.xetius.xetiusmap.paper.PluginConfig;
 import dev.xetius.xetiusmap.paper.XetiusMapPlugin;
 import dev.xetius.xetiusmap.paper.net.MessageBus;
 import dev.xetius.xetiusmap.paper.service.TeleportService;
+import dev.xetius.xetiusmap.paper.service.GenerateService;
 import dev.xetius.xetiusmap.paper.service.TileService;
 import dev.xetius.xetiusmap.paper.service.WaypointService;
 import dev.xetius.xetiusmap.paper.session.PlayerSession;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -37,19 +39,22 @@ public final class XMapCommand implements CommandExecutor, TabCompleter {
     private final WaypointService waypoints;
     private final TeleportService teleports;
     private final TileService tiles;
+    private final GenerateService generate;
 
     public XMapCommand(XetiusMapPlugin plugin,
                        Supplier<PluginConfig> config,
                        MessageBus bus,
                        WaypointService waypoints,
                        TeleportService teleports,
-                       TileService tiles) {
+                       TileService tiles,
+                       GenerateService generate) {
         this.plugin = plugin;
         this.config = config;
         this.bus = bus;
         this.waypoints = waypoints;
         this.teleports = teleports;
         this.tiles = tiles;
+        this.generate = generate;
     }
 
     @Override
@@ -66,6 +71,7 @@ public final class XMapCommand implements CommandExecutor, TabCompleter {
             case "list" -> listWaypoints(sender, args.length > 1 ? args[1] : "1");
             case "stats" -> handleStats(sender);
             case "purge" -> handlePurge(sender, args);
+            case "generate" -> handleGenerate(sender, args);
             case "reload" -> handleReload(sender);
             default -> sendHelp(sender, label);
         }
@@ -263,7 +269,8 @@ public final class XMapCommand implements CommandExecutor, TabCompleter {
                         + ", duplicates " + stats.duplicates()
                         + ", rejected " + stats.rejected(), NamedTextColor.GRAY));
         sender.sendMessage(Component.text(
-                "  tiles served " + stats.served() + ", current revision " + stats.revision(), NamedTextColor.GRAY));
+                "  tiles served " + stats.served() + ", generated " + stats.generated()
+                        + ", current revision " + stats.revision(), NamedTextColor.GRAY));
         sender.sendMessage(Component.text(
                 "  waypoints " + waypoints.size() + ", connected clients " + bus.activeSessions().size(),
                 NamedTextColor.GRAY));
@@ -311,6 +318,62 @@ public final class XMapCommand implements CommandExecutor, TabCompleter {
         }));
     }
 
+    /**
+     * {@code /xmap generate <dimension|stop|status> [force]} — renders the map for every chunk the
+     * world has already generated, without anyone needing to walk there.
+     */
+    private void handleGenerate(CommandSender sender, String[] args) {
+        if (!sender.hasPermission(Permissions.ADMIN)) {
+            error(sender, "You do not have permission to generate map data.");
+            return;
+        }
+        if (args.length < 2) {
+            error(sender, "Usage: /xmap generate <dimension> [force] | stop | status");
+            return;
+        }
+
+        String target = args[1].toLowerCase(Locale.ROOT);
+        if (target.equals("stop")) {
+            if (generate.isRunning()) {
+                generate.cancel();
+                success(sender, "Map generation stopped.");
+            } else {
+                info(sender, "No map generation is running.");
+            }
+            return;
+        }
+        if (target.equals("status")) {
+            GenerateService.Progress progress = generate.progress();
+            if (progress == null) {
+                info(sender, "No map generation is running.");
+            } else {
+                info(sender, "Generating " + progress.dimension() + ": " + progress.percent() + "% ("
+                        + progress.done() + " of " + progress.total() + "), "
+                        + progress.rendered() + " rendered, " + progress.skipped() + " skipped.");
+            }
+            return;
+        }
+
+        World world = null;
+        for (World candidate : plugin.getServer().getWorlds()) {
+            if (candidate.getKey().toString().equalsIgnoreCase(args[1])
+                    || candidate.getName().equalsIgnoreCase(args[1])) {
+                world = candidate;
+                break;
+            }
+        }
+        if (world == null) {
+            error(sender, "No such world: " + args[1]);
+            return;
+        }
+
+        boolean force = args.length > 2 && args[2].equalsIgnoreCase("force");
+        if (force) {
+            info(sender, "Forcing: chunks that already have a tile will be re-rendered.");
+        }
+        generate.start(world, force, message -> info(sender, message));
+    }
+
     private void handleReload(CommandSender sender) {
         if (!sender.hasPermission(Permissions.ADMIN)) {
             error(sender, "You do not have permission to reload XetiusMap.");
@@ -326,7 +389,8 @@ public final class XMapCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> out = new ArrayList<>();
         if (args.length == 1) {
-            addMatching(out, args[0], List.of("waypoint", "tp", "hide", "list", "stats", "purge", "reload"));
+            addMatching(out, args[0], List.of("waypoint", "tp", "hide", "list", "stats", "purge",
+                    "generate", "reload"));
         } else if (args.length == 2) {
             switch (args[0].toLowerCase(Locale.ROOT)) {
                 case "waypoint", "wp" -> addMatching(out, args[1], List.of("add", "remove", "list", "edit"));
@@ -334,6 +398,11 @@ public final class XMapCommand implements CommandExecutor, TabCompleter {
                 case "hide" -> addMatching(out, args[1], List.of("on", "off"));
                 case "purge" -> addMatching(out, args[1], plugin.getServer().getWorlds().stream()
                         .map(world -> world.getKey().toString()).toList());
+                case "generate" -> {
+                    List<String> options = new ArrayList<>(List.of("stop", "status"));
+                    plugin.getServer().getWorlds().forEach(w -> options.add(w.getKey().toString()));
+                    addMatching(out, args[1], options);
+                }
                 default -> {
                     // No further suggestions for this subcommand.
                 }
@@ -387,6 +456,7 @@ public final class XMapCommand implements CommandExecutor, TabCompleter {
                 "/" + label + " hide [on|off]",
                 "/" + label + " stats",
                 "/" + label + " purge <dimension> confirm",
+                "/" + label + " generate <dimension> [force] | stop | status",
                 "/" + label + " reload")) {
             sender.sendMessage(Component.text("  " + line, NamedTextColor.GRAY));
         }

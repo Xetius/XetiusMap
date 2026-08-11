@@ -299,11 +299,33 @@ public final class MapClient implements AutoCloseable {
             case S2C.WaypointDelta delta -> waypoints.apply(delta);
             case S2C.EntityUpdate update -> entities.accept(update);
             case S2C.TeleportResult result -> status = result.message();
+            case S2C.PaletteRequest request -> sendBlockPalette(request.reason());
             case S2C.Notice notice -> {
                 status = notice.message();
                 XetiusMap.LOGGER.info("Server notice: {}", notice.message());
             }
         }
+    }
+
+    /**
+     * Answers the server's request for a colour table. Built on the client thread from the live
+     * registries, then handed to the network layer, which fragments it as needed.
+     */
+    private void sendBlockPalette(String reason) {
+        Minecraft minecraft = Minecraft.getInstance();
+        minecraft.execute(() -> {
+            try {
+                var palette = dev.xetius.xetiusmap.client.map.PaletteBuilder.build(minecraft);
+                if (palette.isEmpty()) {
+                    return;
+                }
+                ClientNetwork.send(new C2S.BlockPaletteUpload(palette));
+                XetiusMap.LOGGER.info("Sent the server a colour palette ({}): {} blocks.",
+                        reason, palette.size());
+            } catch (RuntimeException e) {
+                XetiusMap.LOGGER.warn("Could not build a colour palette for the server", e);
+            }
+        });
     }
 
     private void requestMissing(String indexDimension, int regionX, int regionZ) {
