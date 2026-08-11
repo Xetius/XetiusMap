@@ -31,6 +31,9 @@ public final class MinimapComposer implements AutoCloseable {
      */
     private static final int MAX_TEXELS = 1024;
 
+    /** The map yaw that leaves north at the top. */
+    public static final float NORTH_UP_YAW = 180.0F;
+
     private final Identifier textureId = XetiusMap.id("minimap");
 
     private NativeImage image;
@@ -54,7 +57,10 @@ public final class MinimapComposer implements AutoCloseable {
     public Identifier update(MapDataStore store, String dimension, ClientConfig config,
                              double centreX, double centreZ, float yaw, int requestedSize) {
         float scale = ClientConfig.Zoom.scale(config.minimapZoom);
-        float effectiveYaw = config.minimapRotate ? yaw : 0.0F;
+        // North-up is the same transform as facing north, so it is expressed as a yaw of 180
+        // rather than a special case. Treating it as yaw 0 made the rotating map a half turn out
+        // from the unrotated one, and put every compass letter opposite where it belonged.
+        float effectiveYaw = config.minimapRotate ? yaw : NORTH_UP_YAW;
 
         // Compose at the window's real pixel density. The minimap is placed in GUI coordinates, so
         // a texture built at GUI size gets stretched by the GUI scale — on a 5120 wide display that
@@ -147,15 +153,8 @@ public final class MinimapComposer implements AutoCloseable {
                     continue;
                 }
 
-                double offsetX;
-                double offsetZ;
-                if (yaw == 0.0F) {
-                    offsetX = dx / scale;
-                    offsetZ = dy / scale;
-                } else {
-                    offsetX = (-cos * dx + sin * dy) / scale;
-                    offsetZ = (-sin * dx - cos * dy) / scale;
-                }
+                double offsetX = (-cos * dx + sin * dy) / scale;
+                double offsetZ = (-sin * dx - cos * dy) / scale;
 
                 int worldX = (int) Math.floor(centreX + offsetX);
                 int worldZ = (int) Math.floor(centreZ + offsetZ);
@@ -181,9 +180,6 @@ public final class MinimapComposer implements AutoCloseable {
         double offsetX = worldX - centreX;
         double offsetZ = worldZ - centreZ;
         double half = size / 2.0;
-        if (yaw == 0.0F) {
-            return new float[]{(float) (half + offsetX * scale), (float) (half + offsetZ * scale)};
-        }
         double radians = Math.toRadians(yaw);
         double sin = Math.sin(radians);
         double cos = Math.cos(radians);

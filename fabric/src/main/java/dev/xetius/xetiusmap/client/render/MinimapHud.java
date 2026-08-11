@@ -76,7 +76,8 @@ public final class MinimapHud implements HudElement {
         drawPlayerArrow(graphics, left + size / 2, top + size / 2, config.minimapRotate ? 0.0F : yaw);
 
         if (config.showDirections) {
-            drawCompass(graphics, minecraft, left, top, size, config.minimapRotate ? yaw : 0.0F);
+            drawCompass(graphics, minecraft, left, top, size,
+                    config.minimapRotate ? yaw : MinimapComposer.NORTH_UP_YAW);
         }
         drawLabels(graphics, minecraft, client, config, left, top, size);
     }
@@ -84,7 +85,7 @@ public final class MinimapHud implements HudElement {
     private void drawMarkers(GuiGraphicsExtractor graphics, MapClient client, ClientConfig config,
                              int left, int top, int size, double centreX, double centreZ, float yaw) {
         float scale = ClientConfig.Zoom.scale(config.minimapZoom);
-        float effectiveYaw = config.minimapRotate ? yaw : 0.0F;
+        float effectiveYaw = config.minimapRotate ? yaw : MinimapComposer.NORTH_UP_YAW;
         String dimension = client.dimension();
 
         // Mobs get no edge indicator: they move constantly and are not things you navigate towards,
@@ -201,9 +202,10 @@ public final class MinimapHud implements HudElement {
     private static void drawCompass(GuiGraphicsExtractor graphics, Minecraft minecraft,
                                     int left, int top, int size, float yaw) {
         String[] letters = {"N", "E", "S", "W"};
-        // North is -Z, which is up on an unrotated map.
+        // Inverting the composer's sampling puts north at a screen bearing of 180 - yaw, measured
+        // clockwise from the top. The letters then follow at 90 degree steps.
         for (int i = 0; i < letters.length; i++) {
-            double bearing = Math.toRadians(i * 90.0 - yaw);
+            double bearing = Math.toRadians(180.0 - yaw + i * 90.0);
             double radius = size / 2.0 - 7;
             int x = left + size / 2 + (int) Math.round(Math.sin(bearing) * radius);
             int y = top + size / 2 - (int) Math.round(Math.cos(bearing) * radius);
