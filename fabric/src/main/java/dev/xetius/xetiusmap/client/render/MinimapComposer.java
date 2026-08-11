@@ -138,9 +138,14 @@ public final class MinimapComposer implements AutoCloseable {
         int cachedRegionX = Integer.MIN_VALUE;
         int cachedRegionZ = Integer.MIN_VALUE;
         // `scale` is already texels per block, so this is a real pixel density.
-        int blocksPerPixel = scale >= 1.0F
-                ? RegionRaster.DETAIL_BLOCKS_PER_PIXEL
-                : RegionRaster.COARSE_BLOCKS_PER_PIXEL;
+        int blocksPerPixel;
+        if (scale >= 1.0F) {
+            blocksPerPixel = RegionRaster.DETAIL_BLOCKS_PER_PIXEL;
+        } else if (scale >= 0.25F) {
+            blocksPerPixel = RegionRaster.COARSE_BLOCKS_PER_PIXEL;
+        } else {
+            blocksPerPixel = RegionRaster.OVERVIEW_BLOCKS_PER_PIXEL;
+        }
 
         for (int py = 0; py < size; py++) {
             double dy = py - half + 0.5;

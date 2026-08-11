@@ -34,6 +34,8 @@ public final class ConfigManager {
 
     public void load() {
         if (!Files.exists(file)) {
+            // A fresh config is already current; only an existing file can need migrating.
+            config.configVersion = ClientConfig.CURRENT_VERSION;
             save();
             return;
         }
@@ -46,7 +48,9 @@ public final class ConfigManager {
             XetiusMap.LOGGER.warn("Could not read {}, using defaults: {}", file, e.toString());
             config = new ClientConfig();
         }
+        config.migrate();
         config.validate();
+        save();
     }
 
     public void save() {

@@ -44,8 +44,14 @@ public final class WorldMapScreen extends Screen {
     private static final int SELECTION = 0x60FFAA00;
     private static final int UNEXPLORED = 0xFF12161C;
 
-    /** Safety valve: a hugely zoomed-out view must not try to draw thousands of regions. */
-    private static final int MAX_REGIONS_PER_FRAME = 512;
+    /** Safety valve: a hugely zoomed-out view must not try to draw unbounded regions. */
+    private static final int MAX_REGIONS_PER_FRAME = 4096;
+
+    /**
+     * Past this many regions in view, the empty ones stop being worth visiting and only regions
+     * known to hold data are drawn. Zoomed right out a screen can span tens of thousands.
+     */
+    private static final int SPARSE_DRAW_THRESHOLD = 1024;
 
     private static final int ROW_HEIGHT = 12;
 
@@ -205,45 +211,83 @@ public final class WorldMapScreen extends Screen {
         // raster there threw away detail the screen could actually show.
         int guiScale = minecraft == null ? 1 : Math.max(1, minecraft.getWindow().getGuiScale());
         float physicalPixelsPerBlock = pixelsPerBlock * guiScale;
-        int blocksPerPixel = physicalPixelsPerBlock >= 1.0F
-                ? RegionRaster.DETAIL_BLOCKS_PER_PIXEL
-                : RegionRaster.COARSE_BLOCKS_PER_PIXEL;
+        // Each tier is chosen so a region's texture lands at roughly one screen pixel per texel.
+        int blocksPerPixel;
+        if (physicalPixelsPerBlock >= 1.0F) {
+            blocksPerPixel = RegionRaster.DETAIL_BLOCKS_PER_PIXEL;
+        } else if (physicalPixelsPerBlock >= 0.25F) {
+            blocksPerPixel = RegionRaster.COARSE_BLOCKS_PER_PIXEL;
+        } else {
+            blocksPerPixel = RegionRaster.OVERVIEW_BLOCKS_PER_PIXEL;
+        }
 
         int minRegionX = MapCoords.blockToRegion((int) Math.floor(worldXAt(0)));
         int maxRegionX = MapCoords.blockToRegion((int) Math.ceil(worldXAt(mapWidth())));
         int minRegionZ = MapCoords.blockToRegion((int) Math.floor(worldZAt(0)));
         int maxRegionZ = MapCoords.blockToRegion((int) Math.ceil(worldZAt(height)));
 
+        long inView = (long) (maxRegionX - minRegionX + 1) * (maxRegionZ - minRegionZ + 1);
         Set<Long> visible = new HashSet<>();
-        int drawn = 0;
-        for (int regionZ = minRegionZ; regionZ <= maxRegionZ && drawn < MAX_REGIONS_PER_FRAME; regionZ++) {
-            for (int regionX = minRegionX; regionX <= maxRegionX && drawn < MAX_REGIONS_PER_FRAME; regionX++) {
-                drawn++;
-                visible.add(MapCoords.key(regionX, regionZ));
 
-                int x0 = (int) Math.round(screenX((double) regionX * MapCoords.REGION_BLOCKS));
-                int x1 = (int) Math.round(screenX((double) (regionX + 1) * MapCoords.REGION_BLOCKS));
-                int y0 = (int) Math.round(screenY((double) regionZ * MapCoords.REGION_BLOCKS));
-                int y1 = (int) Math.round(screenY((double) (regionZ + 1) * MapCoords.REGION_BLOCKS));
-                if (x1 <= 0 || y1 <= 0 || x0 >= mapWidth() || y0 >= height) {
+        if (inView <= SPARSE_DRAW_THRESHOLD) {
+            int drawn = 0;
+            for (int regionZ = minRegionZ; regionZ <= maxRegionZ && drawn < MAX_REGIONS_PER_FRAME; regionZ++) {
+                for (int regionX = minRegionX; regionX <= maxRegionX && drawn < MAX_REGIONS_PER_FRAME; regionX++) {
+                    drawn++;
+                    visible.add(MapCoords.key(regionX, regionZ));
+                    drawRegion(graphics, client, regionX, regionZ, blocksPerPixel, true);
+                }
+            }
+        } else {
+            // Too much empty space to walk; visit only the regions that hold something.
+            int drawn = 0;
+            for (long key : client.store().knownRegions(viewedDimension)) {
+                int regionX = MapCoords.keyX(key);
+                int regionZ = MapCoords.keyZ(key);
+                if (regionX < minRegionX || regionX > maxRegionX || regionZ < minRegionZ || regionZ > maxRegionZ) {
                     continue;
                 }
-
-                RegionRaster raster = client.store().raster(viewedDimension, regionX, regionZ, blocksPerPixel);
-                if (raster == null || raster.isEmpty()) {
-                    graphics.fill(Math.max(0, x0), Math.max(0, y0),
-                            Math.min(mapWidth(), x1), Math.min(height, y1), UNEXPLORED);
-                    continue;
+                if (++drawn > MAX_REGIONS_PER_FRAME) {
+                    break;
                 }
-                Identifier texture = raster.texture();
-                if (texture != null) {
-                    graphics.blit(texture, x0, y0, x1, y1, 0.0F, 1.0F, 0.0F, 1.0F);
-                }
+                visible.add(key);
+                drawRegion(graphics, client, regionX, regionZ, blocksPerPixel, false);
             }
         }
 
         // Keep the server pushing updates for whatever is actually on screen.
         client.setViewRegions(viewedDimension, visible);
+    }
+
+    /**
+     * Draws one region.
+     *
+     * @param fillUnexplored whether a region with no data should be filled in; when only known
+     *                       regions are being visited there is nothing to fill, and painting the
+     *                       gaps would mean walking the empty space we just avoided
+     */
+    private void drawRegion(GuiGraphicsExtractor graphics, MapClient client,
+                            int regionX, int regionZ, int blocksPerPixel, boolean fillUnexplored) {
+        int x0 = (int) Math.round(screenX((double) regionX * MapCoords.REGION_BLOCKS));
+        int x1 = (int) Math.round(screenX((double) (regionX + 1) * MapCoords.REGION_BLOCKS));
+        int y0 = (int) Math.round(screenY((double) regionZ * MapCoords.REGION_BLOCKS));
+        int y1 = (int) Math.round(screenY((double) (regionZ + 1) * MapCoords.REGION_BLOCKS));
+        if (x1 <= 0 || y1 <= 0 || x0 >= mapWidth() || y0 >= height) {
+            return;
+        }
+
+        RegionRaster raster = client.store().raster(viewedDimension, regionX, regionZ, blocksPerPixel);
+        if (raster == null || raster.isEmpty()) {
+            if (fillUnexplored) {
+                graphics.fill(Math.max(0, x0), Math.max(0, y0),
+                        Math.min(mapWidth(), x1), Math.min(height, y1), UNEXPLORED);
+            }
+            return;
+        }
+        Identifier texture = raster.texture();
+        if (texture != null) {
+            graphics.blit(texture, x0, y0, x1, y1, 0.0F, 1.0F, 0.0F, 1.0F);
+        }
     }
 
     private void drawMarkers(GuiGraphicsExtractor graphics, MapClient client) {

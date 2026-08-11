@@ -40,6 +40,8 @@ public final class MapDataStore implements AutoCloseable {
     // leave headroom above what a screen can actually demand.
     private static final int MAX_DETAIL_RASTERS = 64;
     private static final int MAX_COARSE_RASTERS = 320;
+    /** Only 4 KiB each, and zooming right out needs thousands of them at once. */
+    private static final int MAX_OVERVIEW_RASTERS = 4096;
 
     /** Rasters drawn within this many frames are never evicted, however full the cache is. */
     private static final long IN_USE_FRAMES = 2;
@@ -67,6 +69,11 @@ public final class MapDataStore implements AutoCloseable {
 
     private final Map<RegionRaster.Key, RegionRaster> detailCache = new LinkedHashMap<>(16, 0.75F, true);
     private final Map<RegionRaster.Key, RegionRaster> coarseCache = new LinkedHashMap<>(16, 0.75F, true);
+    private final Map<RegionRaster.Key, RegionRaster> overviewCache = new LinkedHashMap<>(16, 0.75F, true);
+
+    /** Region coordinates known to hold data, per dimension, so far zoom need not scan empty space. */
+    private final Map<String, Set<Long>> knownRegions = new ConcurrentHashMap<>();
+    private final Set<String> knownRegionScans = ConcurrentHashMap.newKeySet();
     private final Set<RegionRaster.Key> loading = ConcurrentHashMap.newKeySet();
 
     private final Queue<RegionRaster> loaded = new ConcurrentLinkedQueue<>();
@@ -112,7 +119,44 @@ public final class MapDataStore implements AutoCloseable {
     }
 
     private Map<RegionRaster.Key, RegionRaster> cacheFor(int blocksPerPixel) {
-        return blocksPerPixel == RegionRaster.DETAIL_BLOCKS_PER_PIXEL ? detailCache : coarseCache;
+        if (blocksPerPixel == RegionRaster.DETAIL_BLOCKS_PER_PIXEL) {
+            return detailCache;
+        }
+        return blocksPerPixel == RegionRaster.COARSE_BLOCKS_PER_PIXEL ? coarseCache : overviewCache;
+    }
+
+    private static int limitFor(int blocksPerPixel) {
+        if (blocksPerPixel == RegionRaster.DETAIL_BLOCKS_PER_PIXEL) {
+            return MAX_DETAIL_RASTERS;
+        }
+        return blocksPerPixel == RegionRaster.COARSE_BLOCKS_PER_PIXEL ? MAX_COARSE_RASTERS : MAX_OVERVIEW_RASTERS;
+    }
+
+    /**
+     * The regions that actually hold data, which is what makes zooming right out affordable: a
+     * screen may span tens of thousands of regions, but only the explored ones are worth visiting.
+     * Returns an empty set on first call and fills in from disk in the background.
+     */
+    public Set<Long> knownRegions(String dimension) {
+        Set<Long> known = knownRegions.get(dimension);
+        if (known == null && knownRegionScans.add(dimension)) {
+            io.execute(() -> {
+                Set<Long> found = ConcurrentHashMap.newKeySet();
+                for (long[] region : disk.listRegions(dimension)) {
+                    found.add(MapCoords.key((int) region[0], (int) region[1]));
+                }
+                knownRegions.put(dimension, found);
+            });
+        }
+        return known == null ? Set.of() : known;
+    }
+
+    /** Keeps the known-region set current as new areas arrive. */
+    private void noteRegion(String dimension, int chunkX, int chunkZ) {
+        Set<Long> known = knownRegions.get(dimension);
+        if (known != null) {
+            known.add(MapCoords.key(MapCoords.chunkToRegion(chunkX), MapCoords.chunkToRegion(chunkZ)));
+        }
     }
 
     private void scheduleLoad(RegionRaster.Key key) {
@@ -165,8 +209,7 @@ public final class MapDataStore implements AutoCloseable {
             }
             raster.markUsed(frame);
             generation++;
-            evict(cache, key.blocksPerPixel() == RegionRaster.DETAIL_BLOCKS_PER_PIXEL
-                    ? MAX_DETAIL_RASTERS : MAX_COARSE_RASTERS);
+            evict(cache, limitFor(key.blocksPerPixel()));
         }
 
         PaintJob job;
@@ -187,7 +230,8 @@ public final class MapDataStore implements AutoCloseable {
         generation++;
         int regionX = MapCoords.chunkToRegion(job.tile.chunkX());
         int regionZ = MapCoords.chunkToRegion(job.tile.chunkZ());
-        for (int blocksPerPixel : new int[]{RegionRaster.DETAIL_BLOCKS_PER_PIXEL, RegionRaster.COARSE_BLOCKS_PER_PIXEL}) {
+        for (int blocksPerPixel : new int[]{RegionRaster.DETAIL_BLOCKS_PER_PIXEL,
+                RegionRaster.COARSE_BLOCKS_PER_PIXEL, RegionRaster.OVERVIEW_BLOCKS_PER_PIXEL}) {
             RegionRaster raster = cacheFor(blocksPerPixel)
                     .get(new RegionRaster.Key(job.dimension, regionX, regionZ, blocksPerPixel));
             if (raster != null) {
@@ -237,6 +281,7 @@ public final class MapDataStore implements AutoCloseable {
             try {
                 ChunkTile tile = ChunkTile.decode(chunkX, chunkZ, TileCodec.decompress(blob));
                 disk.write(dimension, chunkX, chunkZ, blob, revision, hash);
+                noteRegion(dimension, chunkX, chunkZ);
                 paintQueue.add(new PaintJob(dimension, tile, revision));
             } catch (IOException | RuntimeException e) {
                 XetiusMap.LOGGER.warn("Rejected a map tile from the server at {},{}: {}",
@@ -384,8 +429,10 @@ public final class MapDataStore implements AutoCloseable {
         pendingDisposal.clear();
         detailCache.values().forEach(RegionRaster::close);
         coarseCache.values().forEach(RegionRaster::close);
+        overviewCache.values().forEach(RegionRaster::close);
         detailCache.clear();
         coarseCache.clear();
+        overviewCache.clear();
         loaded.clear();
         paintQueue.clear();
         try {

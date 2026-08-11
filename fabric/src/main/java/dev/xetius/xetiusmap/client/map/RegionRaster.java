@@ -28,6 +28,12 @@ public final class RegionRaster implements AutoCloseable {
     public static final int DETAIL_BLOCKS_PER_PIXEL = 1;
     public static final int COARSE_BLOCKS_PER_PIXEL = 4;
 
+    /**
+     * A pixel per sixteen blocks, so a whole region is 32x32 and costs 4 KiB. Zoomed right out a
+     * screen can span tens of thousands of regions, which is only affordable at this size.
+     */
+    public static final int OVERVIEW_BLOCKS_PER_PIXEL = 16;
+
     private final String dimension;
     private final int regionX;
     private final int regionZ;

@@ -112,6 +112,25 @@ public final class ClientConfig {
     /** Minecraft's own text renders at a 9 pixel line height; marker sizes are points against it. */
     public static final float BASE_TEXT_SIZE = 9.0F;
 
+    /** Bumped when a stored value changes meaning and needs migrating on load. */
+    public static final int CURRENT_VERSION = 1;
+
+    /** Left at zero so an older file, which has no such field, is recognisable. */
+    public int configVersion = 0;
+
+    /**
+     * Brings an older config up to date. Zoom is stored as an index into
+     * {@link Zoom#LEVELS}, so prepending the far-zoom steps shifted every existing index — without
+     * this, everyone's saved zoom would silently jump three steps closer.
+     */
+    public void migrate() {
+        if (configVersion < 1) {
+            minimapZoom += Zoom.V1_PREPENDED;
+            worldMapZoom += Zoom.V1_PREPENDED;
+        }
+        configVersion = CURRENT_VERSION;
+    }
+
     /**
      * Whether a mob should be drawn. Surface creatures are shown regardless of how far above them
      * the viewer is, which is what makes the map useful from the air; cave spawns only appear once
@@ -174,7 +193,13 @@ public final class ClientConfig {
      */
     public static final class Zoom {
 
-        public static final float[] LEVELS = {0.125F, 0.25F, 0.5F, 1.0F, 2.0F, 4.0F, 8.0F};
+        public static final float[] LEVELS = {
+                0.015625F, 0.03125F, 0.0625F,          // 1/64, 1/32, 1/16 — added in config v1
+                0.125F, 0.25F, 0.5F, 1.0F, 2.0F, 4.0F, 8.0F
+        };
+
+        /** How many levels were prepended when the far-zoom steps were added. */
+        public static final int V1_PREPENDED = 3;
 
         private Zoom() {
         }

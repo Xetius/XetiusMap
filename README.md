@@ -22,7 +22,8 @@ in the same on-disk format, so nothing breaks — you simply do not share.
   compass letters.
 - **World map** (`M`) with drag-to-pan, scroll-to-zoom anchored on the cursor, dimension switching,
   a waypoint side panel, and a live coordinate readout.
-- **Zoom** on both views, from 1/8 up to 8 pixels per block.
+- **Zoom** on both views, from 1/64 up to 8 pixels per block — far enough out to see an
+  entire explored world at once.
 - **Vanilla-looking terrain** — block map colours with vanilla's north-neighbour relief shading,
   and biome tint applied to grass, foliage and water so swamps and badlands read correctly. A
   "vanilla map" colour mode drops the tinting for the exact in-game-map look.
