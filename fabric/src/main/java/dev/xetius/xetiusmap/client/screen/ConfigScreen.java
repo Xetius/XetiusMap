@@ -179,7 +179,7 @@ public final class ConfigScreen extends Screen {
         cycle(0, "Colours", () -> config.colorStyle == ClientConfig.ColorStyle.TINTED
                         ? "biome tinted" : "vanilla map",
                 () -> config.colorStyle = next(ClientConfig.ColorStyle.values(), config.colorStyle));
-        toggle(0, "Cave mode", () -> config.caveMode, v -> config.caveMode = v);
+        toggle(0, "Cave view underground", () -> config.caveMode, v -> config.caveMode = v);
         toggle(0, "Seabed through water", () -> config.showUnderwaterTerrain,
                 v -> config.showUnderwaterTerrain = v);
         slider(0, "Water opaque at", 2, 64, 1, config.waterOpaqueDepth,

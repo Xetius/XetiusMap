@@ -108,6 +108,12 @@ public final class ClientConfig {
     public int waterOpaqueDepth = 18;
 
     public ColorStyle colorStyle = ColorStyle.TINTED;
+
+    /**
+     * Draw the caves around you while you are underground, rather than the surface overhead. Off
+     * keeps the surface on the map wherever you are. Either way the surface map is what is stored
+     * and shared: a cave is only ever drawn for as long as you are in one.
+     */
     public boolean caveMode = false;
 
     // --- Sharing ---

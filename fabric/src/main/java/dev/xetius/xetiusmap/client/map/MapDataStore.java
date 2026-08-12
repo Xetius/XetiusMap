@@ -291,6 +291,21 @@ public final class MapDataStore implements AutoCloseable {
     }
 
     /**
+     * Draws a tile without keeping it: the cave view.
+     *
+     * <p>It reaches the rasters already on screen and nothing else, so the surface map is untouched
+     * on disk and comes back as soon as those chunks are drawn again — which the scanner arranges
+     * the moment the player is above ground. A region evicted and reloaded mid-cave reappears as the
+     * surface for the same reason, until the chunks around the player are scanned again.
+     */
+    public void showTile(String dimension, ChunkTile tile, long revision) {
+        if (closed) {
+            return;
+        }
+        paintQueue.add(new PaintJob(dimension, tile, revision));
+    }
+
+    /**
      * Stores a tile this client just rendered.
      *
      * <p>Against a server the tile is drawn straight away but held back from disk until the server

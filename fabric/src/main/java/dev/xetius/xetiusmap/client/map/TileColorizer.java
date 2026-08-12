@@ -34,7 +34,7 @@ import java.util.List;
  */
 public final class TileColorizer {
 
-    /** Below the surface in the Nether, and in cave mode, scanning starts this far above the eye. */
+    /** Below the surface in the Nether, and in the cave view, scanning starts this far above the eye. */
     private static final int CEILING_SCAN_OFFSET = 8;
 
     private final BlockColors blockColors;
@@ -44,11 +44,13 @@ public final class TileColorizer {
     }
 
     /**
-     * @param viewY the player's eye height, used only when there is no sky to look down from
+     * @param viewY  the player's eye height, used only when there is no sky to look down from
+     * @param roofed true when there is no surface to draw: a ceilinged dimension, or the cave view
+     *               of {@link CaveView} while the player is underground
      * @return the rendered tile, or {@code null} if the chunk turned out to be empty
      */
-    public ChunkTile render(ClientLevel level, int chunkX, int chunkZ, int viewY, ClientConfig config) {
-        boolean roofed = level.dimensionType().hasCeiling() || config.caveMode;
+    public ChunkTile render(ClientLevel level, int chunkX, int chunkZ, int viewY,
+                            boolean roofed, ClientConfig config) {
         int minY = level.getMinY();
 
         int[] colors = new int[ChunkTile.COLUMNS];
@@ -159,9 +161,9 @@ public final class TileColorizer {
      * Highest block worth drawing in a column.
      *
      * <p>With a sky overhead the heightmap gives the answer directly, minus any invisible blocks
-     * sitting on top. Under a ceiling — the Nether, or cave mode anywhere — there is no meaningful
-     * "surface", so the scan starts just above the player and finds the first solid block with a
-     * gap above it, which is the floor they are actually standing on.
+     * sitting on top. Under a roof — the Nether, or a cave — there is no meaningful "surface", so
+     * the scan starts just above the player and finds the first solid block with a gap above it,
+     * which is the floor they are actually standing on.
      */
     private int surfaceY(ClientLevel level, BlockPos.MutableBlockPos pos,
                          int worldX, int worldZ, int viewY, boolean roofed, int minY) {

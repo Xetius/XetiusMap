@@ -250,8 +250,20 @@ public final class MapClient implements AutoCloseable {
 
     // --- Tiles -------------------------------------------------------------------------------
 
-    /** Handed a freshly colourised chunk by the scanner. */
-    public void storeScannedTile(String tileDimension, ChunkTile tile, long localRevision) {
+    /**
+     * Handed a freshly colourised chunk by the scanner.
+     *
+     * @param caveTile true if this is the cave view rather than the surface, which is worth looking
+     *                 at from down there but is not what the map of the world is. Such a tile is
+     *                 shown and nothing more: keeping it would leave the inside of a mountain on the
+     *                 map long after you had climbed back out of it, and sharing it would put that
+     *                 on everybody else's map too.
+     */
+    public void storeScannedTile(String tileDimension, ChunkTile tile, long localRevision, boolean caveTile) {
+        if (caveTile) {
+            store.showTile(tileDimension, tile, localRevision);
+            return;
+        }
         boolean uploading = serverBacked && policy.uploadsEnabled() && config.uploadEnabled;
         store.acceptLocalTile(tileDimension, tile, localRevision, !uploading, encoded -> {
             if (uploading && takeUploadToken()) {

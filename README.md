@@ -30,6 +30,11 @@ in the same on-disk format, so nothing breaks — you simply do not share.
 - **Terrain visible under water** — oceans, rivers and lakes are drawn from the seabed up, tinted
   toward the biome water colour by how deep the water is, and shaded from the sea floor rather than
   the surface. Sandbars, ravines and drop-offs read as clearly as dry land.
+- **Cave view, only when you are in one** — optional, and it engages on its own once you are
+  properly enclosed and well below the top of your own column, judged by sky light so a cave mouth
+  or a tree overhead does not count. Standing halfway up a mountain is not being inside it, so the
+  surface stays on the map. What you see down there is never stored or shared: the surface map is
+  intact the moment you climb back out.
 - **Shared discovery** — explored chunks are uploaded, stored server-side and pushed to everyone
   else watching that area.
 - **Global waypoints** — create, edit, recolour, delete; everyone with the mod sees them. Manage

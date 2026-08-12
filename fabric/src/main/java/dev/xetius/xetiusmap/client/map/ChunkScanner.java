@@ -38,6 +38,7 @@ public final class ChunkScanner {
     private static final int MAX_QUEUE = 4096;
 
     private final TileColorizer colorizer;
+    private final CaveView caveView = new CaveView();
     private final Deque<Long> queue = new ArrayDeque<>();
     private final Set<Long> queued = new HashSet<>();
 
@@ -82,10 +83,23 @@ public final class ChunkScanner {
         }
 
         String dimension = level.dimension().identifier().toString();
-        if (!dimension.equals(queuedDimension)) {
+        boolean arrived = !dimension.equals(queuedDimension);
+        if (arrived) {
             clear();
             queuedDimension = dimension;
         }
+
+        // A ceilinged dimension has no surface to draw, so it is scanned from the eye down whatever
+        // the player is standing on. Elsewhere that only makes sense underground.
+        boolean roofed = level.dimensionType().hasCeiling();
+        boolean underground = config.caveMode && !roofed && CaveView.isUnderground(level, minecraft.player);
+        if (arrived) {
+            caveView.reset(underground);
+        } else if (caveView.update(underground)) {
+            // Everything on screen was drawn for the view we have just left.
+            rescanLoaded(minecraft);
+        }
+        boolean caveTiles = caveView.active();
 
         if (++tickCounter >= SWEEP_INTERVAL_TICKS) {
             tickCounter = 0;
@@ -108,13 +122,13 @@ public final class ChunkScanner {
 
             ChunkTile tile;
             try {
-                tile = colorizer.render(level, chunkX, chunkZ, viewY, config);
+                tile = colorizer.render(level, chunkX, chunkZ, viewY, roofed || caveTiles, config);
             } catch (RuntimeException e) {
                 // A chunk that vanished mid-scan is not worth interrupting the game for.
                 continue;
             }
             if (tile != null) {
-                client.storeScannedTile(dimension, tile, ++localRevision);
+                client.storeScannedTile(dimension, tile, ++localRevision, caveTiles);
             }
         }
     }
@@ -122,9 +136,13 @@ public final class ChunkScanner {
     /**
      * Queues every chunk the client currently has loaded, so they are colourised again.
      *
-     * <p>Needed when a setting changes what a chunk should look like: tiles are only redrawn as you
-     * walk past them, so without this a rendering change would appear not to work at all on ground
-     * you had already covered.
+     * <p>Needed when something changes what a chunk should look like — a colour setting, or the
+     * switch between the surface and the cave view. Tiles are only redrawn as you walk past them, so
+     * without this the change would appear not to work at all on ground you had already covered.
+     *
+     * <p>Queued outwards from the player a ring at a time. At a couple of chunks a tick a full
+     * render distance takes the better part of a minute, and the ground you are standing on is the
+     * part you are watching.
      *
      * @return how many chunks were queued
      */
@@ -135,17 +153,22 @@ public final class ChunkScanner {
         int radius = minecraft.options.renderDistance().get();
         ChunkPos centre = minecraft.player.chunkPosition();
         int queuedNow = 0;
-        for (int dz = -radius; dz <= radius; dz++) {
-            for (int dx = -radius; dx <= radius; dx++) {
-                int chunkX = centre.x() + dx;
-                int chunkZ = centre.z() + dz;
-                if (!minecraft.level.getChunkSource().hasChunk(chunkX, chunkZ)) {
-                    continue;
-                }
-                int before = queue.size();
-                offer(MapCoords.key(chunkX, chunkZ));
-                if (queue.size() != before) {
-                    queuedNow++;
+        for (int ring = 0; ring <= radius; ring++) {
+            for (int dz = -ring; dz <= ring; dz++) {
+                for (int dx = -ring; dx <= ring; dx++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != ring) {
+                        continue;
+                    }
+                    int chunkX = centre.x() + dx;
+                    int chunkZ = centre.z() + dz;
+                    if (!minecraft.level.getChunkSource().hasChunk(chunkX, chunkZ)) {
+                        continue;
+                    }
+                    int before = queue.size();
+                    offer(MapCoords.key(chunkX, chunkZ));
+                    if (queue.size() != before) {
+                        queuedNow++;
+                    }
                 }
             }
         }
