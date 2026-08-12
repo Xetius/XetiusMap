@@ -243,6 +243,11 @@ public final class MapClient implements AutoCloseable {
         return scanner.pending();
     }
 
+    /** Colourises every loaded chunk again, for when a setting changes how tiles are drawn. */
+    public int rescanLoadedChunks(Minecraft minecraft) {
+        return scanner.rescanLoaded(minecraft);
+    }
+
     // --- Tiles -------------------------------------------------------------------------------
 
     /** Handed a freshly colourised chunk by the scanner. */

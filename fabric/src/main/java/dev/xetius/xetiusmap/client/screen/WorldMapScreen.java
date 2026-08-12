@@ -239,7 +239,9 @@ public final class WorldMapScreen extends Screen {
                 }
             }
         } else {
-            // Too much empty space to walk; visit only the regions that hold something.
+            // Too much empty space to walk; visit only the regions that hold something. The
+            // unexplored fill is painted once over their bounding box rather than per region.
+            fillExploredBounds(graphics, client, minRegionX, minRegionZ, maxRegionX, maxRegionZ);
             int drawn = 0;
             for (long key : client.store().knownRegions(viewedDimension)) {
                 int regionX = MapCoords.keyX(key);
@@ -257,6 +259,38 @@ public final class WorldMapScreen extends Screen {
 
         // Keep the server pushing updates for whatever is actually on screen.
         client.setViewRegions(viewedDimension, visible);
+    }
+
+    /**
+     * Paints the unexplored backdrop across the bounding box of everything explored, clipped to the
+     * view. At far zoom the individual gaps are never visited, so this is what stops the map
+     * reading as scattered islands floating on nothing.
+     */
+    private void fillExploredBounds(GuiGraphicsExtractor graphics, MapClient client,
+                                    int minRegionX, int minRegionZ, int maxRegionX, int maxRegionZ) {
+        int lowX = Integer.MAX_VALUE;
+        int lowZ = Integer.MAX_VALUE;
+        int highX = Integer.MIN_VALUE;
+        int highZ = Integer.MIN_VALUE;
+        for (long key : client.store().knownRegions(viewedDimension)) {
+            int rx = MapCoords.keyX(key);
+            int rz = MapCoords.keyZ(key);
+            lowX = Math.min(lowX, rx);
+            lowZ = Math.min(lowZ, rz);
+            highX = Math.max(highX, rx);
+            highZ = Math.max(highZ, rz);
+        }
+        if (lowX > highX) {
+            return;
+        }
+        int x0 = (int) Math.round(screenX((double) Math.max(lowX, minRegionX) * MapCoords.REGION_BLOCKS));
+        int x1 = (int) Math.round(screenX((double) (Math.min(highX, maxRegionX) + 1) * MapCoords.REGION_BLOCKS));
+        int y0 = (int) Math.round(screenY((double) Math.max(lowZ, minRegionZ) * MapCoords.REGION_BLOCKS));
+        int y1 = (int) Math.round(screenY((double) (Math.min(highZ, maxRegionZ) + 1) * MapCoords.REGION_BLOCKS));
+        if (x1 > 0 && y1 > 0 && x0 < mapWidth() && y0 < height) {
+            graphics.fill(Math.max(0, x0), Math.max(0, y0),
+                    Math.min(mapWidth(), x1), Math.min(height, y1), UNEXPLORED);
+        }
     }
 
     /**

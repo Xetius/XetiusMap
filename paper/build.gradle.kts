@@ -18,6 +18,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation(project(":common"))
+    testImplementation("io.papermc.paper:paper-api:$paperApiVersion")
 }
 
 tasks.named<ProcessResources>("processResources") {

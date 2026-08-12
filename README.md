@@ -27,6 +27,9 @@ in the same on-disk format, so nothing breaks — you simply do not share.
 - **Vanilla-looking terrain** — block map colours with vanilla's north-neighbour relief shading,
   and biome tint applied to grass, foliage and water so swamps and badlands read correctly. A
   "vanilla map" colour mode drops the tinting for the exact in-game-map look.
+- **Terrain visible under water** — oceans, rivers and lakes are drawn from the seabed up, tinted
+  toward the biome water colour by how deep the water is, and shaded from the sea floor rather than
+  the surface. Sandbars, ravines and drop-offs read as clearly as dry land.
 - **Shared discovery** — explored chunks are uploaded, stored server-side and pushed to everyone
   else watching that area.
 - **Global waypoints** — create, edit, recolour, delete; everyone with the mod sees them. Manage
@@ -97,6 +100,11 @@ keys pan, left-click selects a waypoint, and **right-click opens a menu** offeri
 waypoint, or recentre at that spot.
 
 All keys are rebindable through Minecraft's own Controls screen.
+
+Settings live under Mod Menu, or the *Open map settings* key. Colour settings only apply to chunks
+as they are drawn, so ground you have already covered keeps its old look until you walk it again —
+**Redraw nearby chunks** on the Map tab re-colours everything currently loaded, which takes a minute
+or so at default render distance because redrawing is deliberately paced to avoid stutter.
 
 ## Server commands and permissions
 

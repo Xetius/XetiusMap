@@ -3,6 +3,7 @@ package dev.xetius.xetiusmap.client.screen;
 import dev.xetius.xetiusmap.client.MapClient;
 import dev.xetius.xetiusmap.client.XetiusMapClient;
 import dev.xetius.xetiusmap.client.config.ClientConfig;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
@@ -179,8 +180,23 @@ public final class ConfigScreen extends Screen {
                         ? "biome tinted" : "vanilla map",
                 () -> config.colorStyle = next(ClientConfig.ColorStyle.values(), config.colorStyle));
         toggle(0, "Cave mode", () -> config.caveMode, v -> config.caveMode = v);
+        toggle(0, "Seabed through water", () -> config.showUnderwaterTerrain,
+                v -> config.showUnderwaterTerrain = v);
+        slider(0, "Water opaque at", 2, 64, 1, config.waterOpaqueDepth,
+                v -> String.format(Locale.ROOT, "%.0f m", v),
+                v -> config.waterOpaqueDepth = (int) v);
         cycle(0, "World map zoom", () -> ClientConfig.Zoom.label(config.worldMapZoom),
                 () -> config.worldMapZoom = (config.worldMapZoom + 1) % ClientConfig.Zoom.LEVELS.length);
+        // Colour settings only affect chunks as they are drawn, so offer a way to redraw the ones
+        // already on the map rather than making people walk the ground again.
+        int redrawY = nextRow[0];
+        place(0, Button.builder(Component.literal("Redraw nearby chunks"), button -> {
+            MapClient client = XetiusMapClient.mapClient();
+            int queued = client == null ? 0 : client.rescanLoadedChunks(Minecraft.getInstance());
+            button.setMessage(Component.literal(queued == 0
+                    ? "Nothing loaded to redraw"
+                    : "Redrawing " + queued + " chunks"));
+        }).bounds(columnX(0), redrawY, COLUMN_WIDTH, WIDGET_HEIGHT).build());
 
         toggle(1, "Share what I explore", () -> config.uploadEnabled, v -> config.uploadEnabled = v);
         Button hide = Button.builder(Component.literal(hiddenLabel(config)), button -> {

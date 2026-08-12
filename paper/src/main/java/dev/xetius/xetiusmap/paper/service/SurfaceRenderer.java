@@ -23,6 +23,9 @@ public final class SurfaceRenderer {
     private static final int SHADE_NORMAL = 220;
     private static final int SHADE_HIGH = 255;
 
+    /** Matches the client's default; the server has no per-player setting to consult. */
+    private static final int WATER_OPAQUE_DEPTH = 18;
+
     private final BlockPalette palette;
 
     public SurfaceRenderer(BlockPalette palette) {
@@ -56,12 +59,37 @@ public final class SurfaceRenderer {
                     continue;
                 }
 
-                Material material = snapshot.getBlockType(x, surface, z);
-                String blockId = material.getKey().toString();
+                String blockId = snapshot.getBlockType(x, surface, z).getKey().toString();
                 String biomeId = snapshot.getBiome(x, surface, z).getKey().toString();
 
-                int depth = palette.isWater(blockId) ? waterDepth(snapshot, x, surface, z, minY) : 0;
-                int rgb = palette.colorOf(blockId, biomeId, 0);
+                int rgb;
+                int depth = 0;
+                // Relief is measured from the seabed under water, matching what clients render, so
+                // backfilled tiles sit alongside walked ones without a visible change of style.
+                int reliefY = surface;
+
+                if (palette.isWater(blockId)) {
+                    int lowestWater = surface;
+                    while (lowestWater - 1 >= minY
+                            && palette.isWater(snapshot.getBlockType(x, lowestWater - 1, z).getKey().toString())) {
+                        lowestWater--;
+                    }
+                    depth = Math.min(255, surface - lowestWater + 1);
+                    int floorY = lowestWater - 1;
+                    int waterRgb = palette.colorOf(blockId, biomeId, 0);
+
+                    if (floorY >= minY) {
+                        String floorId = snapshot.getBlockType(x, floorY, z).getKey().toString();
+                        int floorRgb = palette.colorOf(floorId, snapshot.getBiome(x, floorY, z).getKey().toString(), 0);
+                        rgb = floorRgb == 0 ? waterRgb : blend(floorRgb, waterRgb, waterOpacity(depth));
+                        reliefY = floorY;
+                    } else {
+                        rgb = waterRgb;
+                    }
+                } else {
+                    rgb = palette.colorOf(blockId, biomeId, 0);
+                }
+
                 if (rgb == 0) {
                     heights[index] = (short) surface;
                     currentRow[x] = surface;
@@ -69,11 +97,11 @@ public final class SurfaceRenderer {
                 }
                 anything = true;
 
-                int north = previousRow != null ? previousRow[x] : surface;
-                colors[index] = 0xFF000000 | scale(rgb, shade(surface, north, x, z, depth));
-                heights[index] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, surface));
-                waterDepth[index] = (byte) Math.min(255, depth);
-                currentRow[x] = surface;
+                int north = previousRow != null ? previousRow[x] : reliefY;
+                colors[index] = 0xFF000000 | scale(rgb, shade(reliefY, north, x, z));
+                heights[index] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, reliefY));
+                waterDepth[index] = (byte) depth;
+                currentRow[x] = reliefY;
             }
             previousRow = currentRow.clone();
         }
@@ -97,25 +125,21 @@ public final class SurfaceRenderer {
         return Integer.MIN_VALUE;
     }
 
-    private int waterDepth(ChunkSnapshot snapshot, int x, int surfaceY, int z, int minY) {
-        int depth = 0;
-        for (int y = surfaceY; y >= minY && depth < 255; y--) {
-            if (!palette.isWater(snapshot.getBlockType(x, y, z).getKey().toString())) {
-                break;
-            }
-            depth++;
-        }
-        return depth;
+    /** Water's own contribution, matching the client so the two renderers agree. */
+    private static float waterOpacity(int depth) {
+        return 0.15F + 0.75F * Math.min(1.0F, depth / (float) WATER_OPAQUE_DEPTH);
+    }
+
+    private static int blend(int from, int to, float amount) {
+        float a = Math.max(0.0F, Math.min(1.0F, amount));
+        int r = Math.round(((from >> 16) & 0xFF) * (1 - a) + ((to >> 16) & 0xFF) * a);
+        int g = Math.round(((from >> 8) & 0xFF) * (1 - a) + ((to >> 8) & 0xFF) * a);
+        int b = Math.round((from & 0xFF) * (1 - a) + (to & 0xFF) * a);
+        return (r << 16) | (g << 8) | b;
     }
 
     /** The same relief shading the client applies, so backfilled tiles sit alongside walked ones. */
-    private static int shade(int y, int northY, int x, int z, int waterDepth) {
-        if (waterDepth > 0) {
-            if (waterDepth <= 2) {
-                return SHADE_HIGH;
-            }
-            return waterDepth <= 6 ? SHADE_NORMAL : SHADE_LOW;
-        }
+    private static int shade(int y, int northY, int x, int z) {
         double delta = (y - northY) * 4.0 / 5.0 + (((x + z) & 1) - 0.5) * 0.4;
         if (delta > 0.6) {
             return SHADE_HIGH;

@@ -119,6 +119,39 @@ public final class ChunkScanner {
         }
     }
 
+    /**
+     * Queues every chunk the client currently has loaded, so they are colourised again.
+     *
+     * <p>Needed when a setting changes what a chunk should look like: tiles are only redrawn as you
+     * walk past them, so without this a rendering change would appear not to work at all on ground
+     * you had already covered.
+     *
+     * @return how many chunks were queued
+     */
+    public int rescanLoaded(Minecraft minecraft) {
+        if (minecraft.level == null || minecraft.player == null) {
+            return 0;
+        }
+        int radius = minecraft.options.renderDistance().get();
+        ChunkPos centre = minecraft.player.chunkPosition();
+        int queuedNow = 0;
+        for (int dz = -radius; dz <= radius; dz++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                int chunkX = centre.x() + dx;
+                int chunkZ = centre.z() + dz;
+                if (!minecraft.level.getChunkSource().hasChunk(chunkX, chunkZ)) {
+                    continue;
+                }
+                int before = queue.size();
+                offer(MapCoords.key(chunkX, chunkZ));
+                if (queue.size() != before) {
+                    queuedNow++;
+                }
+            }
+        }
+        return queuedNow;
+    }
+
     private void sweepAroundPlayer(Minecraft minecraft) {
         if (minecraft.player == null) {
             return;

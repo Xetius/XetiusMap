@@ -102,6 +102,11 @@ public final class ClientConfig {
     public int worldMapZoom = 3;
 
     // --- Rendering ---
+    /** Show the seabed through water, shaded by how deep it is, rather than flat blue. */
+    public boolean showUnderwaterTerrain = true;
+    /** Depth in blocks at which water becomes effectively opaque. */
+    public int waterOpaqueDepth = 18;
+
     public ColorStyle colorStyle = ColorStyle.TINTED;
     public boolean caveMode = false;
 
@@ -169,6 +174,7 @@ public final class ClientConfig {
         worldWaypointIconSize = clamp(worldWaypointIconSize, 3, 24);
         worldWaypointFocusPercent = clamp(worldWaypointFocusPercent, 1, 50);
         mobVerticalRange = clamp(mobVerticalRange, 0, 512);
+        waterOpaqueDepth = clamp(waterOpaqueDepth, 2, 96);
         if (mobVisibility == null) {
             mobVisibility = MobVisibility.SURFACE;
         }
